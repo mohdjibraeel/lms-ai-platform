@@ -44,6 +44,7 @@ router.get("/", async (req, res) => {
   const result = await pool.query(
     `SELECT id, instructor_id, title, description, category, difficulty, thumbnail_url, price, status, created_at
      FROM courses
+     WHERE status != 'archived'
      ORDER BY created_at DESC`,
   );
   res.json({ courses: result.rows });
@@ -278,14 +279,12 @@ router.put(
     const isAdmin = req.user!.role === "admin";
 
     if (!isOwner && !isAdmin) {
-      return res
-        .status(403)
-        .json({
-          error: {
-            code: "NOT_COURSE_OWNER",
-            message: "You do not own this course",
-          },
-        });
+      return res.status(403).json({
+        error: {
+          code: "NOT_COURSE_OWNER",
+          message: "You do not own this course",
+        },
+      });
     }
 
     const title = req.body.title ?? course.title;
@@ -314,4 +313,41 @@ router.put(
     res.json({ course: result.rows[0] });
   },
 );
+
+// DELETE /:id — archive a course (soft delete)
+router.delete(
+  "/:id",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req, res) => {
+    const { id } = req.params;
+
+    // Fetch the course first — need instructor_id for ownership check, and to 404 if missing
+    const courseResult = await pool.query(
+      "SELECT * FROM courses WHERE id = $1",
+      [id],
+    );
+    const course = courseResult.rows[0];
+
+    if (!course) {
+      return res.status(404).json({ error: "COURSE_NOT_FOUND" });
+    }
+
+    // Ownership check — same pattern as PUT /:id
+    if (
+      course.instructor_id !== req.user!.userId &&
+      req.user!.role !== "admin"
+    ) {
+      return res.status(403).json({ error: "NOT_COURSE_OWNER" });
+    }
+
+    const result = await pool.query(
+      `UPDATE courses SET status = 'archived' WHERE id = $1 RETURNING *`,
+      [id],
+    );
+
+    res.json(result.rows[0]);
+  },
+);
+
 export default router;
