@@ -40,4 +40,13 @@ router.post(
   },
 );
 
+router.get('/', async (req, res) => {
+  const result = await pool.query(
+    `SELECT id, instructor_id, title, description, category, difficulty, thumbnail_url, price, status, created_at
+     FROM courses
+     ORDER BY created_at DESC`
+  );
+  res.json({ courses: result.rows });
+});
+
 export default router;
