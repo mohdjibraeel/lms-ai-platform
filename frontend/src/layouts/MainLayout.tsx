@@ -19,7 +19,12 @@ export default function MainLayout() {
           <GraduationCap size={18} className="text-gray-900" />
           LMS-AI
         </span>
-
+        <Link
+          to="/courses"
+          className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+        >
+          Courses
+        </Link>
         {!token && (
           <>
             <Link
@@ -56,7 +61,7 @@ export default function MainLayout() {
         )}
       </nav>
 
-      <main className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 md:p-8">
+      <main className="bg-gray-50 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 md:p-8">
         <Outlet />
       </main>
     </div>

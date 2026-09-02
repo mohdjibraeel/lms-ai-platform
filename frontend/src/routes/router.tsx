@@ -5,6 +5,7 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Dashboard from "../pages/dashboard/Dashboard";
 import NotFound from "../pages/NotFound";
+import CourseCatalog from "../pages/course-catalog/CourseCatalog";
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/login" replace /> },
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
+      { path: "courses", element: <CourseCatalog /> },
       {
         element: <ProtectedRoute />,
         children: [{ path: "dashboard", element: <Dashboard /> }],
