@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+@theme {
+  --color-sage: #E8EDE9;
+  --color-accent-yellow: #FFC629;
+  --color-accent-green: #A8D97F;
+  --color-success: #7CB342;
+  --color-danger: #EF4444;
+  --color-link: #4F7DF3;
+  --color-muted: #8A8F98;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}
