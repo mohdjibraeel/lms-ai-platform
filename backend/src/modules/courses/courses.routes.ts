@@ -166,14 +166,12 @@ router.post(
     } = req.body;
 
     if (!title || order_index === undefined) {
-      return res
-        .status(400)
-        .json({
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "title and order_index are required",
-          },
-        });
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "title and order_index are required",
+        },
+      });
     }
 
     const moduleResult = await pool.query(
@@ -195,14 +193,12 @@ router.post(
     const isAdmin = req.user!.role === "admin";
 
     if (!isOwner && !isAdmin) {
-      return res
-        .status(403)
-        .json({
-          error: {
-            code: "NOT_COURSE_OWNER",
-            message: "You do not own this course",
-          },
-        });
+      return res.status(403).json({
+        error: {
+          code: "NOT_COURSE_OWNER",
+          message: "You do not own this course",
+        },
+      });
     }
 
     const result = await pool.query(
@@ -224,4 +220,98 @@ router.post(
   },
 );
 
+router.get("/:id", async (req, res) => {
+  const course_id = req.params.id;
+
+  const courseResult = await pool.query("SELECT * FROM courses WHERE id = $1", [
+    course_id,
+  ]);
+  const course = courseResult.rows[0];
+
+  if (!course) {
+    return res
+      .status(404)
+      .json({ error: { code: "NOT_FOUND", message: "Course not found" } });
+  }
+
+  const modulesResult = await pool.query(
+    "SELECT * FROM modules WHERE course_id = $1 ORDER BY order_index",
+    [course_id],
+  );
+
+  const lecturesResult = await pool.query(
+    `SELECT l.* FROM lectures l
+     JOIN modules m ON m.id = l.module_id
+     WHERE m.course_id = $1
+     ORDER BY l.order_index`,
+    [course_id],
+  );
+
+  const modules = modulesResult.rows.map((mod) => ({
+    ...mod,
+    lectures: lecturesResult.rows.filter((lec) => lec.module_id === mod.id),
+  }));
+
+  res.json({ course: { ...course, modules } });
+});
+
+router.put(
+  "/:id",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req, res) => {
+    const course_id = req.params.id;
+
+    const courseResult = await pool.query(
+      "SELECT * FROM courses WHERE id = $1",
+      [course_id],
+    );
+    const course = courseResult.rows[0];
+
+    if (!course) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Course not found" } });
+    }
+
+    const isOwner = course.instructor_id === req.user!.userId;
+    const isAdmin = req.user!.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res
+        .status(403)
+        .json({
+          error: {
+            code: "NOT_COURSE_OWNER",
+            message: "You do not own this course",
+          },
+        });
+    }
+
+    const title = req.body.title ?? course.title;
+    const description = req.body.description ?? course.description;
+    const category = req.body.category ?? course.category;
+    const difficulty = req.body.difficulty ?? course.difficulty;
+    const thumbnail_url = req.body.thumbnail_url ?? course.thumbnail_url;
+    const price = req.body.price ?? course.price;
+
+    const result = await pool.query(
+      `UPDATE courses
+     SET title = $1, description = $2, category = $3, difficulty = $4, thumbnail_url = $5, price = $6
+     WHERE id = $7
+     RETURNING *`,
+      [
+        title,
+        description,
+        category,
+        difficulty,
+        thumbnail_url,
+        price,
+        course_id,
+      ],
+    );
+
+    res.json({ course: result.rows[0] });
+  },
+);
 export default router;
