@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate, requireRole } from "../../middleware/auth.middleware";
+import { uploadFileToMinio } from "../../storage/minioClient";
+import { upload } from "../../middleware/upload.middleware";
 
 const router = Router();
 
@@ -199,16 +201,11 @@ router.post(
   "/modules/:id/lectures",
   authenticate,
   requireRole("instructor", "admin"),
+  upload.single("video"),
   async (req, res) => {
     const module_id = req.params.id;
-    const {
-      title,
-      video_url,
-      transcript,
-      duration_seconds,
-      order_index,
-      resource_urls,
-    } = req.body;
+    const { title, transcript, duration_seconds, order_index, resource_urls } =
+      req.body;
 
     if (!title || order_index === undefined) {
       return res.status(400).json({
@@ -246,6 +243,25 @@ router.post(
       });
     }
 
+    let video_url: string | null = null;
+    if (req.file) {
+      const key = `lectures/${module_id}/${Date.now()}-${req.file.originalname}`;
+      video_url = await uploadFileToMinio(
+        req.file.buffer,
+        key,
+        req.file.mimetype,
+      );
+    }
+
+    let parsedResourceUrls: string[] | null = null;
+    if (resource_urls) {
+      try {
+        parsedResourceUrls = JSON.parse(resource_urls);
+      } catch {
+        parsedResourceUrls = null;
+      }
+    }
+
     const result = await pool.query(
       `INSERT INTO lectures (module_id, title, video_url, transcript, duration_seconds, order_index, resource_urls)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -254,10 +270,10 @@ router.post(
         module_id,
         title,
         video_url,
-        transcript,
-        duration_seconds,
+        transcript || null,
+        duration_seconds ? parseInt(duration_seconds) : null,
         order_index,
-        resource_urls,
+        parsedResourceUrls,
       ],
     );
 
