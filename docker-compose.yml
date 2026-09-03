@@ -17,5 +17,19 @@ services:
     ports:
       - "6380:6379"
 
+  minio:
+    image: minio/minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: lms_minio_admin
+      MINIO_ROOT_PASSWORD: lms_minio_pass
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+
 volumes:
   pgdata:
+  miniodata:
