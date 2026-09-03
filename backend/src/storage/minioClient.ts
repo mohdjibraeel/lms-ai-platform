@@ -1,14 +1,22 @@
-import { S3Client, CreateBucketCommand, HeadBucketCommand, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  CreateBucketCommand,
+  HeadBucketCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+  PutBucketCorsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const s3Client = new S3Client({
   endpoint: process.env.MINIO_ENDPOINT,
-  region: "us-east-1", // MinIO ignores this, but the SDK requires a value
+  region: "us-east-1",
   credentials: {
     accessKeyId: process.env.MINIO_ACCESS_KEY!,
     secretAccessKey: process.env.MINIO_SECRET_KEY!,
   },
-  forcePathStyle: true, // required for MinIO compatibility
+  forcePathStyle: true,
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
 export const BUCKET_NAME = process.env.MINIO_BUCKET!;
@@ -23,7 +31,11 @@ export async function ensureBucketExists() {
   }
 }
 
-export async function uploadFileToMinio(buffer: Buffer, key: string, contentType: string) {
+export async function uploadFileToMinio(
+  buffer: Buffer,
+  key: string,
+  contentType: string,
+) {
   await s3Client.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
@@ -37,4 +49,23 @@ export async function uploadFileToMinio(buffer: Buffer, key: string, contentType
 export async function getPresignedVideoUrl(key: string) {
   const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
   return getSignedUrl(s3Client, command, { expiresIn: 3600 }); // 1 hour
+}
+
+export async function configureBucketCors() {
+  await s3Client.send(
+    new PutBucketCorsCommand({
+      Bucket: BUCKET_NAME,
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedOrigins: ["http://localhost:5173"],
+            AllowedMethods: ["GET", "HEAD"],
+            AllowedHeaders: ["*"],
+            MaxAgeSeconds: 3600,
+          },
+        ],
+      },
+    }),
+  );
+  console.log("Bucket CORS configured.");
 }

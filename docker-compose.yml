@@ -23,6 +23,7 @@ services:
     environment:
       MINIO_ROOT_USER: lms_minio_admin
       MINIO_ROOT_PASSWORD: lms_minio_pass
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:5173"
     ports:
       - "9002:9000"
       - "9003:9001"

@@ -34,7 +34,9 @@ export default function Dashboard() {
   }
 
   if (error) {
-    return <p className="text-danger text-sm">Failed to load your dashboard.</p>;
+    return (
+      <p className="text-danger text-sm">Failed to load your dashboard.</p>
+    );
   }
 
   return (
@@ -57,14 +59,16 @@ export default function Dashboard() {
         {data?.enrollments.map((enrollment) => (
           <Link
             key={enrollment.enrollment_id}
-            to="/courses"
+            to={`/courses/${enrollment.course_id}`}
             className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-200 block"
           >
             <div className="p-4">
               <h2 className="font-semibold text-gray-900 mb-1 text-lg">
                 {enrollment.title}
               </h2>
-              <p className="text-sm text-muted mb-3">{enrollment.description}</p>
+              <p className="text-sm text-muted mb-3">
+                {enrollment.description}
+              </p>
 
               <div className="mb-2">
                 <div className="flex justify-between text-xs text-muted mb-1">
