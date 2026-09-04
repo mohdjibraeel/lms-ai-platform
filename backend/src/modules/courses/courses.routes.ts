@@ -41,13 +41,57 @@ router.post(
 );
 
 router.get("/", async (req, res) => {
+  const { category, difficulty, q, page } = req.query;
+
+  const conditions: string[] = [`status != 'archived'`];
+  const params: any[] = [];
+
+  if (category) {
+    params.push(category);
+    conditions.push(`category = $${params.length}`);
+  }
+
+  if (difficulty) {
+    params.push(difficulty);
+    conditions.push(`difficulty = $${params.length}`);
+  }
+
+  if (q) {
+    params.push(`%${q}%`);
+    conditions.push(`title ILIKE $${params.length}`);
+  }
+
+  const whereClause = conditions.join(" AND ");
+
+  const pageNum = Math.max(parseInt(page as string) || 1, 1);
+  const limit = 10;
+  const offset = (pageNum - 1) * limit;
+
+  const countResult = await pool.query(
+    `SELECT COUNT(*) FROM courses WHERE ${whereClause}`,
+    params,
+  );
+  const totalCount = parseInt(countResult.rows[0].count);
+
+  params.push(limit, offset);
   const result = await pool.query(
     `SELECT id, instructor_id, title, description, category, difficulty, thumbnail_url, price, status, created_at
      FROM courses
-     WHERE status != 'archived'
-     ORDER BY created_at DESC`,
+     WHERE ${whereClause}
+     ORDER BY created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
   );
-  res.json({ courses: result.rows });
+
+  res.json({
+    courses: result.rows,
+    pagination: {
+      page: pageNum,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+    },
+  });
 });
 
 router.post(
