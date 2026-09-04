@@ -1,0 +1,3 @@
+ALTER TABLE assignment_submissions
+ADD CONSTRAINT assignment_submissions_assignment_user_unique
+UNIQUE (assignment_id, user_id);

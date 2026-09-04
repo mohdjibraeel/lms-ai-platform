@@ -4,6 +4,7 @@ import {
   HeadBucketCommand,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
   PutBucketCorsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -68,4 +69,10 @@ export async function configureBucketCors() {
     }),
   );
   console.log("Bucket CORS configured.");
+}
+
+export async function deleteFileFromMinio(key: string) {
+  await s3Client.send(
+    new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
+  );
 }
