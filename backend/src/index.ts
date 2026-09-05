@@ -1,11 +1,13 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from "cors";
 import authRoutes from './modules/auth/auth.routes';
 import { authenticate, requireRole } from './middleware/auth.middleware';
 import courseRoutes from './modules/courses/courses.routes';
 dotenv.config();
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "http://localhost:5173" }));
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courses', courseRoutes);
