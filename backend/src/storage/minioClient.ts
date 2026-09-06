@@ -1,4 +1,4 @@
-import { S3Client, CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
+import { S3Client, CreateBucketCommand, HeadBucketCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 
 export const s3Client = new S3Client({
   endpoint: process.env.MINIO_ENDPOINT,
@@ -20,4 +20,16 @@ export async function ensureBucketExists() {
     await s3Client.send(new CreateBucketCommand({ Bucket: BUCKET_NAME }));
     console.log(`Bucket "${BUCKET_NAME}" created.`);
   }
+}
+
+export async function uploadFileToMinio(buffer: Buffer, key: string, contentType: string) {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    }),
+  );
+  return `${process.env.MINIO_ENDPOINT}/${BUCKET_NAME}/${key}`;
 }
