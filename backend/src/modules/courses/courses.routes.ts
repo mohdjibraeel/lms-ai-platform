@@ -245,7 +245,8 @@ router.post(
 
     let video_url: string | null = null;
     if (req.file) {
-      const key = `lectures/${module_id}/${Date.now()}-${req.file.originalname}`;
+      const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+      const key = `lectures/${module_id}/${Date.now()}-${safeName}`;
       video_url = await uploadFileToMinio(
         req.file.buffer,
         key,
