@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate, requireRole } from "../../middleware/auth.middleware";
-import { getPresignedVideoUrl, uploadFileToMinio } from "../../storage/minioClient";
+import {
+  getPresignedVideoUrl,
+  uploadFileToMinio,
+} from "../../storage/minioClient";
 import { upload } from "../../middleware/upload.middleware";
 
 const router = Router();
@@ -281,9 +284,15 @@ router.post(
 
 router.get("/lectures/:id/video-url", authenticate, async (req, res) => {
   const { id } = req.params;
+  const user_id = req.user!.userId;
+  const role = req.user!.role;
 
   const result = await pool.query(
-    `SELECT video_url FROM lectures WHERE id = $1`,
+    `SELECT l.video_url, c.instructor_id, c.id AS course_id
+     FROM lectures l
+     JOIN modules m ON m.id = l.module_id
+     JOIN courses c ON c.id = m.course_id
+     WHERE l.id = $1`,
     [id],
   );
   const lecture = result.rows[0];
@@ -292,6 +301,24 @@ router.get("/lectures/:id/video-url", authenticate, async (req, res) => {
     return res.status(404).json({
       error: { code: "VIDEO_NOT_FOUND", message: "No video for this lecture" },
     });
+  }
+
+  const isOwner = lecture.instructor_id === user_id;
+  const isAdmin = role === "admin";
+
+  if (!isOwner && !isAdmin) {
+    const enrollmentCheck = await pool.query(
+      `SELECT id FROM enrollments WHERE user_id = $1 AND course_id = $2`,
+      [user_id, lecture.course_id],
+    );
+    if (enrollmentCheck.rows.length === 0) {
+      return res.status(403).json({
+        error: {
+          code: "NOT_ENROLLED",
+          message: "You must be enrolled in this course to view this video",
+        },
+      });
+    }
   }
 
   const signedUrl = await getPresignedVideoUrl(lecture.video_url);
