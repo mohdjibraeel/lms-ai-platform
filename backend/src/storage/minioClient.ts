@@ -1,4 +1,5 @@
-import { S3Client, CreateBucketCommand, HeadBucketCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, CreateBucketCommand, HeadBucketCommand, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const s3Client = new S3Client({
   endpoint: process.env.MINIO_ENDPOINT,
@@ -31,5 +32,9 @@ export async function uploadFileToMinio(buffer: Buffer, key: string, contentType
       ContentType: contentType,
     }),
   );
-  return `${process.env.MINIO_ENDPOINT}/${BUCKET_NAME}/${key}`;
+}
+
+export async function getPresignedVideoUrl(key: string) {
+  const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
+  return getSignedUrl(s3Client, command, { expiresIn: 3600 }); // 1 hour
 }

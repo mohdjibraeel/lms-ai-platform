@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate, requireRole } from "../../middleware/auth.middleware";
-import { uploadFileToMinio } from "../../storage/minioClient";
+import { getPresignedVideoUrl, uploadFileToMinio } from "../../storage/minioClient";
 import { upload } from "../../middleware/upload.middleware";
 
 const router = Router();
@@ -247,11 +247,8 @@ router.post(
     if (req.file) {
       const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, "_");
       const key = `lectures/${module_id}/${Date.now()}-${safeName}`;
-      video_url = await uploadFileToMinio(
-        req.file.buffer,
-        key,
-        req.file.mimetype,
-      );
+      await uploadFileToMinio(req.file.buffer, key, req.file.mimetype);
+      video_url = key; // store the internal key, not a public URL
     }
 
     let parsedResourceUrls: string[] | null = null;
@@ -281,6 +278,25 @@ router.post(
     res.status(201).json({ lecture: result.rows[0] });
   },
 );
+
+router.get("/lectures/:id/video-url", authenticate, async (req, res) => {
+  const { id } = req.params;
+
+  const result = await pool.query(
+    `SELECT video_url FROM lectures WHERE id = $1`,
+    [id],
+  );
+  const lecture = result.rows[0];
+
+  if (!lecture || !lecture.video_url) {
+    return res.status(404).json({
+      error: { code: "VIDEO_NOT_FOUND", message: "No video for this lecture" },
+    });
+  }
+
+  const signedUrl = await getPresignedVideoUrl(lecture.video_url);
+  res.json({ url: signedUrl });
+});
 
 router.get("/:id", async (req, res) => {
   const course_id = req.params.id;
