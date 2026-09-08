@@ -106,6 +106,54 @@ router.post("/lectures/:id/notes", authenticate, async (req: any, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /lectures/:id/notes
+// Returns this user's notes for this lecture, oldest timestamp first.
+// ---------------------------------------------------------------------------
+router.get("/lectures/:id/notes", authenticate, async (req: any, res) => {
+  const lectureId = req.params.id;
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, lecture_id, timestamp_seconds, content, created_at
+       FROM notes
+       WHERE lecture_id = $1 AND user_id = $2
+       ORDER BY timestamp_seconds ASC`,
+      [lectureId, userId]
+    );
+
+    res.json({ notes: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /lectures/:id/bookmarks
+// Returns this user's bookmarks for this lecture, oldest timestamp first.
+// ---------------------------------------------------------------------------
+router.get("/lectures/:id/bookmarks", authenticate, async (req: any, res) => {
+  const lectureId = req.params.id;
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, lecture_id, timestamp_seconds, created_at
+       FROM bookmarks
+       WHERE lecture_id = $1 AND user_id = $2
+       ORDER BY timestamp_seconds ASC`,
+      [lectureId, userId]
+    );
+
+    res.json({ bookmarks: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // POST /lectures/:id/bookmarks
 // Body: { timestamp_seconds: number }
 // ---------------------------------------------------------------------------
