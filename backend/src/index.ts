@@ -7,6 +7,8 @@ import courseRoutes from "./modules/courses/courses.routes";
 import { ensureBucketExists } from "./storage/minioClient";
 import enrollmentRoutes from "./modules/enrollments/enrollments.routes";
 import lectureRoutes from "./modules/lectures/lectures.routes";
+import assignmentRoutes from "./modules/assignments/assignments.routes";
+import submissionRoutes from "./modules/assignments/submissions.routes";
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -16,6 +18,8 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/courses", courseRoutes);
 app.use("/api/v1", enrollmentRoutes);
 app.use("/api/v1",lectureRoutes);
+app.use("/api/v1", assignmentRoutes);
+app.use("/api/v1", submissionRoutes);
 app.get(
   "/api/v1/test/student-only",
   authenticate,
