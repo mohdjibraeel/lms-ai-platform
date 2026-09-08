@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "../../services/api";
+import { Link } from "react-router-dom";
 
 interface Course {
   id: string;
@@ -57,12 +58,13 @@ export default function CourseCatalog() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {data?.courses.map((course) => (
-          <div
+          <Link
             key={course.id}
-            className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+            to={`/courses/${course.id}`}
+            className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 block"
           >
             <div
-              className={`h-20 bg-gradient-to-br ${headerGradients[course.difficulty] ?? "from-gray-400 to-gray-500"} flex items-end p-4`}
+              className={`h-20 bg-linear-to-br ${headerGradients[course.difficulty] ?? "from-gray-400 to-gray-500"} flex items-end p-4`}
             >
               <span className="text-white/90 text-xs font-medium uppercase tracking-wide">
                 {course.category}
@@ -86,7 +88,7 @@ export default function CourseCatalog() {
                 </p>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

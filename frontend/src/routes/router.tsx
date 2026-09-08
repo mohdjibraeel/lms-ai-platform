@@ -7,6 +7,7 @@ import Dashboard from "../pages/dashboard/Dashboard";
 import NotFound from "../pages/NotFound";
 import CourseCatalog from "../pages/course-catalog/CourseCatalog";
 import CoursePlayer from "../pages/course-player/CoursePlayer";
+import CourseDetail from "../pages/course-catalog/CourseDetail";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
       { path: "courses", element: <CourseCatalog /> },
+      { path: "courses/:courseId", element: <CourseDetail /> },
       {
         element: <ProtectedRoute />,
 
