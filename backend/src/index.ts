@@ -9,6 +9,7 @@ import enrollmentRoutes from "./modules/enrollments/enrollments.routes";
 import lectureRoutes from "./modules/lectures/lectures.routes";
 import assignmentRoutes from "./modules/assignments/assignments.routes";
 import submissionRoutes from "./modules/assignments/submissions.routes";
+import quizRoutes from "./modules/quizzes/quizzes.routes";
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -20,6 +21,7 @@ app.use("/api/v1", enrollmentRoutes);
 app.use("/api/v1",lectureRoutes);
 app.use("/api/v1", assignmentRoutes);
 app.use("/api/v1", submissionRoutes);
+app.use("/api/v1", quizRoutes);
 app.get(
   "/api/v1/test/student-only",
   authenticate,
