@@ -31,6 +31,16 @@ services:
       - miniodata:/data
     command: server /data --console-address ":9001"
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: lms-ai-platform-pgadmin-1
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5051:80"
+    depends_on:
+      - postgres
 volumes:
   pgdata:
   miniodata:
