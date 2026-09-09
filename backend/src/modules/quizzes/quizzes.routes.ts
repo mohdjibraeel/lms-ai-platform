@@ -30,7 +30,7 @@ router.post(
        FROM modules m
        JOIN courses c ON m.course_id = c.id
        WHERE m.id = $1`,
-      [module_id]
+      [module_id],
     );
 
     if (ownerResult.rows.length === 0) {
@@ -53,7 +53,7 @@ router.post(
         `INSERT INTO quizzes (module_id, title, is_ai_generated)
          VALUES ($1, $2, false)
          RETURNING id`,
-        [module_id, title]
+        [module_id, title],
       );
       const quizId = quizResult.rows[0].id;
 
@@ -62,7 +62,7 @@ router.post(
           `INSERT INTO quiz_questions (quiz_id, question_text, question_type, order_index)
            VALUES ($1, $2, $3, $4)
            RETURNING id`,
-          [quizId, q.question_text, q.question_type, q.order_index]
+          [quizId, q.question_text, q.question_type, q.order_index],
         );
         const questionId = questionResult.rows[0].id;
 
@@ -70,7 +70,7 @@ router.post(
           await client.query(
             `INSERT INTO quiz_options (question_id, option_text, is_correct)
              VALUES ($1, $2, $3)`,
-            [questionId, opt.option_text, opt.is_correct ?? false]
+            [questionId, opt.option_text, opt.is_correct ?? false],
           );
         }
       }
@@ -84,7 +84,51 @@ router.post(
     } finally {
       client.release();
     }
-  }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /quizzes/:id/attempt
+// Creates a new attempt row for this student on this quiz. Multiple attempts
+// per student are allowed (no unique constraint on quiz_attempts).
+// ---------------------------------------------------------------------------
+router.post(
+  "/quizzes/:id/attempt",
+  authenticate,
+  requireRole("student"),
+  async (req: any, res) => {
+    const quizId = req.params.id;
+    const userId = req.user.userId;
+
+    try {
+      // Enrollment check — same JOIN-chain pattern as progress/submissions
+      const enrollmentResult = await pool.query(
+        `SELECT e.id
+         FROM quizzes q
+         JOIN modules m ON q.module_id = m.id
+         JOIN courses c ON m.course_id = c.id
+         JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
+         WHERE q.id = $2`,
+        [userId, quizId],
+      );
+
+      if (enrollmentResult.rows.length === 0) {
+        return res.status(403).json({ error: "NOT_ENROLLED" });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO quiz_attempts (quiz_id, user_id, started_at)
+         VALUES ($1, $2, now())
+         RETURNING id, quiz_id, user_id, started_at`,
+        [quizId, userId],
+      );
+
+      res.status(201).json({ attempt: result.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
 );
 
 export default router;
