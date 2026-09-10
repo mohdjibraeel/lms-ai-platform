@@ -10,6 +10,7 @@ import lectureRoutes from "./modules/lectures/lectures.routes";
 import assignmentRoutes from "./modules/assignments/assignments.routes";
 import submissionRoutes from "./modules/assignments/submissions.routes";
 import quizRoutes from "./modules/quizzes/quizzes.routes";
+import { startStreakCronJob } from "./jobs/streakCron";
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -46,6 +47,7 @@ const PORT = process.env.PORT || 4000;
 
 async function startServer() {
   await ensureBucketExists();
+  startStreakCronJob();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
