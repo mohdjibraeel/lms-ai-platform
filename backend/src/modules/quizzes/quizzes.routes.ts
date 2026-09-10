@@ -130,5 +130,91 @@ router.post(
     }
   },
 );
+// ---------------------------------------------------------------------------
+// POST /attempts/:id/submit
+// Body: { answers: [{ question_id, selected_option_ids?, text_answer? }] }
+// Grades MCQ/multi_select automatically. Leaves short_answer ungraded.
+// ---------------------------------------------------------------------------
+router.post(
+  "/attempts/:id/submit",
+  authenticate,
+  requireRole("student"),
+  async (req: any, res) => {
+    const attemptId = req.params.id;
+    const userId = req.user.userId;
+    const { answers } = req.body;
+
+    try {
+      // 1. Confirm this attempt belongs to this student (not someone else's attempt)
+      const attemptResult = await pool.query(
+        `SELECT id, quiz_id FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
+        [attemptId, userId],
+      );
+      if (attemptResult.rows.length === 0) {
+        return res.status(403).json({ error: "NOT_YOUR_ATTEMPT" });
+      }
+
+      let correctCount = 0;
+      let gradableCount = 0; // only mcq/multi_select count toward the score
+
+      for (const answer of answers) {
+        // 2. Look up this question's type and its correct option IDs
+        const questionResult = await pool.query(
+          `SELECT question_type FROM quiz_questions WHERE id = $1`,
+          [answer.question_id],
+        );
+        const questionType = questionResult.rows[0].question_type;
+
+        let isCorrect: boolean | null = null;
+
+        if (questionType === "mcq" || questionType === "multi_select") {
+          gradableCount++;
+
+          const correctOptionsResult = await pool.query(
+            `SELECT id FROM quiz_options WHERE question_id = $1 AND is_correct = true`,
+            [answer.question_id],
+          );
+          const correctIds = correctOptionsResult.rows.map((r) => r.id).sort();
+          const selectedIds = (answer.selected_option_ids ?? []).slice().sort();
+
+          // Exact match: same length AND every ID matches at the same position
+          isCorrect =
+            correctIds.length === selectedIds.length &&
+            correctIds.every((id, i) => id === selectedIds[i]);
+
+          if (isCorrect) correctCount++;
+        }
+        // short_answer: isCorrect stays null — not auto-graded
+
+        await pool.query(
+          `INSERT INTO quiz_answers (attempt_id, question_id, selected_option_ids, text_answer, is_correct)
+         VALUES ($1, $2, $3, $4, $5)`,
+          [
+            attemptId,
+            answer.question_id,
+            answer.selected_option_ids ?? null,
+            answer.text_answer ?? null,
+            isCorrect,
+          ],
+        );
+      }
+
+      // 3. Score = percentage of GRADABLE questions answered correctly
+      const score =
+        gradableCount > 0 ? (correctCount / gradableCount) * 100 : 0;
+
+      const updateResult = await pool.query(
+        `UPDATE quiz_attempts SET score = $1, submitted_at = now() WHERE id = $2
+       RETURNING id, quiz_id, user_id, score, started_at, submitted_at`,
+        [score, attemptId],
+      );
+
+      res.json({ attempt: updateResult.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
+);
 
 export default router;
