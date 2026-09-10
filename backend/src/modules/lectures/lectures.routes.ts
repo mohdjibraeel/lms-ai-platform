@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate } from "../../middleware/auth.middleware";
+import { updateStreakForUser } from "../../utils/streaks";
 
 const router = Router();
 
@@ -47,6 +48,7 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
       [enrollment_id, lectureId, watched_seconds ?? 0, completed]
     );
 
+    await updateStreakForUser(userId);``
     // 3. Recompute enrollments.progress_percent from scratch: what fraction
     //    of this course's lectures are marked completed.
     const totalsResult = await pool.query(
