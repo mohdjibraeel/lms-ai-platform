@@ -411,7 +411,7 @@ router.get(
        LEFT JOIN lecture_progress lp ON lp.enrollment_id = e.id AND lp.lecture_id = l.id
        WHERE m.course_id = $1
        GROUP BY l.id, l.title, l.order_index, m.order_index
-       ORDER BY m.order_index, l.order_index`,
+       ORDER BY m.order_index, l.order_index, l.id`,
       [course_id],
     );
 

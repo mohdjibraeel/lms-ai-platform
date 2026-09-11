@@ -147,11 +147,22 @@ router.post(
     try {
       // 1. Confirm this attempt belongs to this student (not someone else's attempt)
       const attemptResult = await pool.query(
-        `SELECT id, quiz_id FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
+        `SELECT id, quiz_id, submitted_at FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
         [attemptId, userId],
       );
       if (attemptResult.rows.length === 0) {
         return res.status(403).json({ error: "NOT_YOUR_ATTEMPT" });
+      }
+
+      // 1b. Block resubmission of an already-graded attempt — retakes go
+      // through a NEW attempt (POST /quizzes/:id/attempt), not this one again.
+      if (attemptResult.rows[0].submitted_at !== null) {
+        return res.status(409).json({
+          error: {
+            code: "ALREADY_SUBMITTED",
+            message: "This attempt has already been submitted",
+          },
+        });
       }
 
       let correctCount = 0;
