@@ -203,6 +203,13 @@ router.post(
       const score =
         gradableCount > 0 ? (correctCount / gradableCount) * 100 : 0;
 
+      if (score === 100) {
+        await pool.query(
+          `INSERT INTO user_badges (user_id, badge_id) VALUES ($1, 3) ON CONFLICT DO NOTHING`,
+          [userId],
+        );
+      }
+
       const updateResult = await pool.query(
         `UPDATE quiz_attempts SET score = $1, submitted_at = now() WHERE id = $2
        RETURNING id, quiz_id, user_id, score, started_at, submitted_at`,

@@ -1,7 +1,7 @@
 import { pool } from "../db/pool";
 
 export async function updateStreakForUser(userId: string) {
-  await pool.query(
+  const result = await pool.query(
     `INSERT INTO streaks (user_id, current_streak, longest_streak, last_active_date)
      VALUES ($1, 1, 1, CURRENT_DATE)
      ON CONFLICT (user_id) DO UPDATE SET
@@ -19,7 +19,17 @@ export async function updateStreakForUser(userId: string) {
          END
        ),
        last_active_date = CURRENT_DATE
-     WHERE streaks.user_id = $1 OR streaks.user_id IS NULL`,
-    [userId]
+     WHERE streaks.user_id = $1 OR streaks.user_id IS NULL
+     RETURNING current_streak`,
+    [userId],
   );
+
+  const newStreak = result.rows[0].current_streak;
+
+  if (newStreak >= 7) {
+    await pool.query(
+      `INSERT INTO user_badges (user_id, badge_id) VALUES ($1, 2) ON CONFLICT DO NOTHING`,
+      [userId],
+    );
+  }
 }
