@@ -169,11 +169,20 @@ router.post(
       let gradableCount = 0; // only mcq/multi_select count toward the score
 
       for (const answer of answers) {
-        // 2. Look up this question's type and its correct option IDs
+        // 2. Look up this question's type — and confirm it actually belongs
+        // to THIS attempt's quiz, not some other quiz entirely.
         const questionResult = await pool.query(
-          `SELECT question_type FROM quiz_questions WHERE id = $1`,
-          [answer.question_id],
+          `SELECT question_type FROM quiz_questions WHERE id = $1 AND quiz_id = $2`,
+          [answer.question_id, attemptResult.rows[0].quiz_id],
         );
+        if (questionResult.rows.length === 0) {
+          return res.status(400).json({
+            error: {
+              code: "INVALID_QUESTION",
+              message: "This question does not belong to this quiz",
+            },
+          });
+        }
         const questionType = questionResult.rows[0].question_type;
 
         let isCorrect: boolean | null = null;
