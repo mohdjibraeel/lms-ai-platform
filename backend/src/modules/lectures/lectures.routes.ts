@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate } from "../../middleware/auth.middleware";
 import { updateStreakForUser } from "../../utils/streaks";
+import { generateCertificateIfEligible } from "../../utils/certificates";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
        JOIN courses c ON m.course_id = c.id
        JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
        WHERE l.id = $2`,
-      [userId, lectureId]
+      [userId, lectureId],
     );
 
     if (enrollmentResult.rows.length === 0) {
@@ -45,10 +46,11 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
          watched_seconds = GREATEST(lecture_progress.watched_seconds, EXCLUDED.watched_seconds),
          completed = lecture_progress.completed OR EXCLUDED.completed,
          last_watched_at = now()`,
-      [enrollment_id, lectureId, watched_seconds ?? 0, completed]
+      [enrollment_id, lectureId, watched_seconds ?? 0, completed],
     );
 
-    await updateStreakForUser(userId);``
+    await updateStreakForUser(userId);
+    ``;
     // 3. Recompute enrollments.progress_percent from scratch: what fraction
     //    of this course's lectures are marked completed.
     const totalsResult = await pool.query(
@@ -60,7 +62,7 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
        LEFT JOIN lecture_progress lp
          ON lp.lecture_id = l.id AND lp.enrollment_id = $1
        WHERE m.course_id = $2`,
-      [enrollment_id, course_id]
+      [enrollment_id, course_id],
     );
 
     const { total_lectures, completed_lectures } = totalsResult.rows[0];
@@ -69,10 +71,17 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
 
     await pool.query(
       `UPDATE enrollments SET progress_percent = $1 WHERE id = $2`,
-      [progressPercent, enrollment_id]
+      [progressPercent, enrollment_id],
     );
+    if (progressPercent === 100) {
+      await generateCertificateIfEligible(userId, course_id);
+    }
 
-    res.json({ enrollment_id, lecture_id: lectureId, progress_percent: progressPercent });
+    res.json({
+      enrollment_id,
+      lecture_id: lectureId,
+      progress_percent: progressPercent,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "SERVER_ERROR" });
@@ -97,7 +106,7 @@ router.post("/lectures/:id/notes", authenticate, async (req: any, res) => {
       `INSERT INTO notes (user_id, lecture_id, timestamp_seconds, content)
        VALUES ($1, $2, $3, $4)
        RETURNING id, lecture_id, timestamp_seconds, content, created_at`,
-      [userId, lectureId, timestamp_seconds ?? null, content]
+      [userId, lectureId, timestamp_seconds ?? null, content],
     );
 
     res.status(201).json({ note: result.rows[0] });
@@ -121,7 +130,7 @@ router.get("/lectures/:id/notes", authenticate, async (req: any, res) => {
        FROM notes
        WHERE lecture_id = $1 AND user_id = $2
        ORDER BY timestamp_seconds ASC`,
-      [lectureId, userId]
+      [lectureId, userId],
     );
 
     res.json({ notes: result.rows });
@@ -145,7 +154,7 @@ router.get("/lectures/:id/bookmarks", authenticate, async (req: any, res) => {
        FROM bookmarks
        WHERE lecture_id = $1 AND user_id = $2
        ORDER BY timestamp_seconds ASC`,
-      [lectureId, userId]
+      [lectureId, userId],
     );
 
     res.json({ bookmarks: result.rows });
@@ -169,7 +178,7 @@ router.post("/lectures/:id/bookmarks", authenticate, async (req: any, res) => {
       `INSERT INTO bookmarks (user_id, lecture_id, timestamp_seconds)
        VALUES ($1, $2, $3)
        RETURNING id, lecture_id, timestamp_seconds, created_at`,
-      [userId, lectureId, timestamp_seconds ?? null]
+      [userId, lectureId, timestamp_seconds ?? null],
     );
 
     res.status(201).json({ bookmark: result.rows[0] });
