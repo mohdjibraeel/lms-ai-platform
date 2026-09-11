@@ -199,9 +199,11 @@ router.post(
         );
       }
 
-      // 3. Score = percentage of GRADABLE questions answered correctly
+      // 3. Score = percentage of GRADABLE questions answered correctly.
+      // null (not 0) when there are no gradable questions — a pure
+      // short_answer quiz hasn't been graded, it isn't a 0% fail.
       const score =
-        gradableCount > 0 ? (correctCount / gradableCount) * 100 : 0;
+        gradableCount > 0 ? (correctCount / gradableCount) * 100 : null;
 
       if (score === 100) {
         await pool.query(

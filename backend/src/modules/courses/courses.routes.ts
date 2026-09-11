@@ -360,6 +360,115 @@ router.get("/:id", async (req, res) => {
   res.json({ course: { ...course, modules } });
 });
 
+router.get(
+  "/:id/analytics",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req, res) => {
+    const course_id = req.params.id;
+
+    const courseResult = await pool.query(
+      "SELECT id, instructor_id FROM courses WHERE id = $1",
+      [course_id],
+    );
+    const course = courseResult.rows[0];
+
+    if (!course) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Course not found" } });
+    }
+
+    const isOwner = course.instructor_id === req.user!.userId;
+    const isAdmin = req.user!.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        error: {
+          code: "NOT_COURSE_OWNER",
+          message: "You do not own this course",
+        },
+      });
+    }
+
+    const enrollmentCountResult = await pool.query(
+      "SELECT COUNT(*)::int AS total FROM enrollments WHERE course_id = $1",
+      [course_id],
+    );
+    const totalEnrolled = enrollmentCountResult.rows[0].total;
+
+    const lectureStatsResult = await pool.query(
+      `SELECT
+         l.id AS lecture_id,
+         l.title,
+         l.order_index,
+         m.order_index AS module_order_index,
+         COUNT(lp.id) FILTER (WHERE lp.completed = true)::int AS completed_count,
+         COALESCE(AVG(lp.watched_seconds), 0)::float AS avg_watched_seconds
+       FROM lectures l
+       JOIN modules m ON m.id = l.module_id
+       LEFT JOIN enrollments e ON e.course_id = m.course_id
+       LEFT JOIN lecture_progress lp ON lp.enrollment_id = e.id AND lp.lecture_id = l.id
+       WHERE m.course_id = $1
+       GROUP BY l.id, l.title, l.order_index, m.order_index
+       ORDER BY m.order_index, l.order_index`,
+      [course_id],
+    );
+
+    let previousRate: number | null = null;
+    const lectures = lectureStatsResult.rows.map((row) => {
+      const completionRate =
+        totalEnrolled > 0 ? (row.completed_count / totalEnrolled) * 100 : 0;
+      const dropOffFromPrevious =
+        previousRate === null
+          ? null
+          : Math.max(previousRate - completionRate, 0);
+      previousRate = completionRate;
+
+      return {
+        lecture_id: row.lecture_id,
+        title: row.title,
+        completion_rate_percent: Math.round(completionRate * 10) / 10,
+        drop_off_from_previous_percent:
+          dropOffFromPrevious === null
+            ? null
+            : Math.round(dropOffFromPrevious * 10) / 10,
+        avg_watched_seconds: Math.round(row.avg_watched_seconds),
+      };
+    });
+
+    const quizStatsResult = await pool.query(
+      `SELECT
+         q.id AS quiz_id,
+         q.title,
+         COUNT(qa.id) FILTER (WHERE qa.submitted_at IS NOT NULL)::int AS attempts_count,
+         AVG(qa.score) FILTER (WHERE qa.submitted_at IS NOT NULL)::float AS avg_score
+       FROM quizzes q
+       JOIN modules m ON m.id = q.module_id
+       LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id
+       WHERE m.course_id = $1
+       GROUP BY q.id, q.title
+       ORDER BY q.title`,
+      [course_id],
+    );
+
+    const quizzes = quizStatsResult.rows.map((row) => ({
+      quiz_id: row.quiz_id,
+      title: row.title,
+      attempts_count: row.attempts_count,
+      avg_score:
+        row.avg_score === null ? null : Math.round(row.avg_score * 10) / 10,
+    }));
+
+    res.json({
+      course_id,
+      total_enrolled: totalEnrolled,
+      lectures,
+      quizzes,
+    });
+  },
+);
+
 router.put(
   "/:id",
   authenticate,
