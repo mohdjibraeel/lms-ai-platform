@@ -2,7 +2,10 @@ import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate, requireRole } from "../../middleware/auth.middleware";
 import { uploadAssignment } from "../../middleware/upload.middleware";
-import { uploadFileToMinio, deleteFileFromMinio } from "../../storage/minioClient";
+import {
+  uploadFileToMinio,
+  deleteFileFromMinio,
+} from "../../storage/minioClient";
 
 const router = Router();
 
@@ -33,7 +36,7 @@ router.post(
          JOIN courses c ON a.course_id = c.id
          JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
          WHERE a.id = $2`,
-        [userId, assignmentId]
+        [userId, assignmentId],
       );
 
       if (assignmentResult.rows.length === 0) {
@@ -53,7 +56,7 @@ router.post(
       const existingResult = await pool.query(
         `SELECT file_url FROM assignment_submissions
          WHERE assignment_id = $1 AND user_id = $2`,
-        [assignmentId, userId]
+        [assignmentId, userId],
       );
 
       if (existingResult.rows.length > 0) {
@@ -77,7 +80,7 @@ router.post(
            grade = NULL,
            feedback = NULL
          RETURNING id, assignment_id, user_id, file_url, submitted_at, grade, feedback`,
-        [assignmentId, userId, key]
+        [assignmentId, userId, key],
       );
 
       res.status(201).json({ submission: result.rows[0] });
@@ -85,7 +88,57 @@ router.post(
       console.error(err);
       res.status(500).json({ error: "SERVER_ERROR" });
     }
-  }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /assignments/:id/my-submission
+// Returns the CURRENT student's own submission for this assignment, or
+// { submission: null } if they haven't submitted yet. Student-only — an
+// instructor grading submissions uses PUT /submissions/:id/grade instead,
+// which already has its own ownership check.
+// ---------------------------------------------------------------------------
+router.get(
+  "/assignments/:id/my-submission",
+  authenticate,
+  requireRole("student"),
+  async (req: any, res) => {
+    const assignmentId = req.params.id;
+    const userId = req.user.userId;
+
+    try {
+      // Confirm enrollment via the same JOIN-chain pattern used elsewhere
+      const enrollmentResult = await pool.query(
+        `SELECT e.id
+         FROM assignments a
+         JOIN courses c ON a.course_id = c.id
+         JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
+         WHERE a.id = $2`,
+        [userId, assignmentId],
+      );
+
+      if (enrollmentResult.rows.length === 0) {
+        return res.status(403).json({
+          error: {
+            code: "NOT_ENROLLED",
+            message: "You must be enrolled in this course to view this",
+          },
+        });
+      }
+
+      const submissionResult = await pool.query(
+        `SELECT id, assignment_id, user_id, file_url, submitted_at, grade, feedback
+         FROM assignment_submissions
+         WHERE assignment_id = $1 AND user_id = $2`,
+        [assignmentId, userId],
+      );
+
+      res.json({ submission: submissionResult.rows[0] ?? null });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
 );
 
 export default router;
