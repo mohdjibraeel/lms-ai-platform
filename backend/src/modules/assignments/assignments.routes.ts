@@ -49,6 +49,76 @@ router.post(
   },
 );
 
+// ---------------------------------------------------------------------------
+// GET /assignments/:id
+// Returns assignment details (instructions, rubric, due_date) plus an
+// is_past_due flag so the frontend can warn before the student even tries
+// to submit. Instructor/admin who owns it can view anytime; students must
+// be enrolled in the assignment's course.
+// ---------------------------------------------------------------------------
+router.get("/assignments/:id", authenticate, async (req: any, res) => {
+  const assignmentId = req.params.id;
+  const userId = req.user.userId;
+  const role = req.user.role;
+
+  try {
+    const assignmentResult = await pool.query(
+      `SELECT a.id, a.course_id, a.title, a.instructions, a.rubric, a.due_date, c.instructor_id
+       FROM assignments a
+       JOIN courses c ON c.id = a.course_id
+       WHERE a.id = $1`,
+      [assignmentId],
+    );
+    const assignment = assignmentResult.rows[0];
+
+    if (!assignment) {
+      return res
+        .status(404)
+        .json({
+          error: { code: "NOT_FOUND", message: "Assignment not found" },
+        });
+    }
+
+    const isOwner = assignment.instructor_id === userId;
+    const isAdmin = role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      const enrollmentResult = await pool.query(
+        `SELECT id FROM enrollments WHERE user_id = $1 AND course_id = $2`,
+        [userId, assignment.course_id],
+      );
+      if (enrollmentResult.rows.length === 0) {
+        return res.status(403).json({
+          error: {
+            code: "NOT_ENROLLED",
+            message:
+              "You must be enrolled in this course to view this assignment",
+          },
+        });
+      }
+    }
+
+    const isPastDue =
+      assignment.due_date !== null &&
+      new Date(assignment.due_date) < new Date();
+
+    res.json({
+      assignment: {
+        id: assignment.id,
+        course_id: assignment.course_id,
+        title: assignment.title,
+        instructions: assignment.instructions,
+        rubric: assignment.rubric,
+        due_date: assignment.due_date,
+        is_past_due: isPastDue,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 router.put(
   "/submissions/:id/grade",
   authenticate,
