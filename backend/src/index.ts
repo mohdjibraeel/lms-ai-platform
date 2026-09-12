@@ -2,7 +2,6 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./modules/auth/auth.routes";
-import { authenticate, requireRole } from "./middleware/auth.middleware";
 import courseRoutes from "./modules/courses/courses.routes";
 import { ensureBucketExists } from "./storage/minioClient";
 import enrollmentRoutes from "./modules/enrollments/enrollments.routes";
@@ -23,26 +22,7 @@ app.use("/api/v1",lectureRoutes);
 app.use("/api/v1", assignmentRoutes);
 app.use("/api/v1", submissionRoutes);
 app.use("/api/v1", quizRoutes);
-app.get(
-  "/api/v1/test/student-only",
-  authenticate,
-  requireRole("student"),
-  (req, res) => {
-    res.json({ message: "You are authenticated as a student", user: req.user });
-  },
-);
 
-app.get(
-  "/api/v1/test/instructor-only",
-  authenticate,
-  requireRole("instructor", "admin"),
-  (req, res) => {
-    res.json({
-      message: "You are authenticated as an instructor or admin",
-      user: req.user,
-    });
-  },
-);
 const PORT = process.env.PORT || 4000;
 
 async function startServer() {

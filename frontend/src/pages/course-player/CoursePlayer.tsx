@@ -45,13 +45,34 @@ export default function CoursePlayer() {
   const { data, isLoading, error } = useQuery<VideoUrlResponse>({
     queryKey: ["lecture-video", lectureId],
     queryFn: async () => {
-      const response = await api.get(`/courses/lectures/${lectureId}/video-url`);
+      const response = await api.get(
+        `/courses/lectures/${lectureId}/video-url`,
+      );
       return response.data;
     },
     enabled: !!lectureId,
     staleTime: 55 * 60 * 1000, // presigned URL is valid 1hr server-side; treat it as fresh
     refetchOnWindowFocus: false, // don't regenerate the URL (and restart playback) on tab refocus
   });
+
+  // Fetches this user's saved watched_seconds for this lecture, so we can
+  // resume playback instead of always starting at 0:00.
+  const { data: progressData } = useQuery<{
+    watched_seconds: number;
+    completed: boolean;
+  }>({
+    queryKey: ["lecture-progress", lectureId],
+    queryFn: async () => {
+      const response = await api.get(`/lectures/${lectureId}/progress`);
+      return response.data;
+    },
+    enabled: !!lectureId,
+  });
+
+  // Guards against seeking more than once — without this, every re-render
+  // that touches the video would try to seek again, potentially yanking
+  // playback back after the student has already moved forward manually.
+  const hasResumedRef = useRef(false);
 
   // Fetches this user's existing notes for this lecture on mount — this is
   // what fixes the "everything disappears on refresh" gap. Same pattern
@@ -80,14 +101,23 @@ export default function CoursePlayer() {
   // Silent background mutation — no loading/error UI needed for this one,
   // since the student never directly triggers it.
   const progressMutation = useMutation({
-    mutationFn: async (payload: { watched_seconds: number; completed: boolean }) => {
+    mutationFn: async (payload: {
+      watched_seconds: number;
+      completed: boolean;
+    }) => {
       await api.post(`/lectures/${lectureId}/progress`, payload);
     },
   });
 
   const noteMutation = useMutation({
-    mutationFn: async (payload: { timestamp_seconds: number; content: string }) => {
-      const response = await api.post<{ note: Note }>(`/lectures/${lectureId}/notes`, payload);
+    mutationFn: async (payload: {
+      timestamp_seconds: number;
+      content: string;
+    }) => {
+      const response = await api.post<{ note: Note }>(
+        `/lectures/${lectureId}/notes`,
+        payload,
+      );
       return response.data.note;
     },
     onSuccess: () => {
@@ -100,14 +130,33 @@ export default function CoursePlayer() {
     mutationFn: async (payload: { timestamp_seconds: number }) => {
       const response = await api.post<{ bookmark: Bookmark }>(
         `/lectures/${lectureId}/bookmarks`,
-        payload
+        payload,
       );
       return response.data.bookmark;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lecture-bookmarks", lectureId] });
+      queryClient.invalidateQueries({
+        queryKey: ["lecture-bookmarks", lectureId],
+      });
     },
   });
+
+  // Fires once the video's metadata (duration, seekable range) is ready —
+  // this is the earliest safe point to seek. Only runs once per mount,
+  // guarded by hasResumedRef, and only if there's meaningful progress to
+  // resume (skip the seek entirely for a lecture already marked complete,
+  // so a finished video doesn't awkwardly jump back mid-way).
+  function handleLoadedMetadata() {
+    const video = videoRef.current;
+    if (!video || hasResumedRef.current) return;
+    hasResumedRef.current = true;
+
+    const savedSeconds = progressData?.watched_seconds ?? 0;
+    if (savedSeconds > 0 && !progressData?.completed) {
+      video.currentTime = savedSeconds;
+      lastReportedRef.current = savedSeconds;
+    }
+  }
 
   // Fires on every native timeupdate event. Throttled so we only report
   // progress once per ~10 seconds of actual playback, not continuously.
@@ -118,7 +167,10 @@ export default function CoursePlayer() {
     const currentSecond = Math.floor(video.currentTime);
     if (currentSecond - lastReportedRef.current >= 10) {
       lastReportedRef.current = currentSecond;
-      progressMutation.mutate({ watched_seconds: currentSecond, completed: false });
+      progressMutation.mutate({
+        watched_seconds: currentSecond,
+        completed: false,
+      });
     }
   }
 
@@ -147,7 +199,9 @@ export default function CoursePlayer() {
     const video = videoRef.current;
     if (!video) return;
 
-    bookmarkMutation.mutate({ timestamp_seconds: Math.floor(video.currentTime) });
+    bookmarkMutation.mutate({
+      timestamp_seconds: Math.floor(video.currentTime),
+    });
   }
 
   if (isLoading) {
@@ -170,6 +224,7 @@ export default function CoursePlayer() {
             ref={videoRef}
             controls
             src={data.url}
+            onLoadedMetadata={handleLoadedMetadata}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
             className="w-full rounded-xl shadow-md bg-black"
@@ -190,7 +245,9 @@ export default function CoursePlayer() {
           {bookmarks.length > 0 && (
             <ul className="mt-2 text-sm text-muted">
               {bookmarks.map((b) => (
-                <li key={b.id}>Bookmarked at {formatTime(b.timestamp_seconds)}</li>
+                <li key={b.id}>
+                  Bookmarked at {formatTime(b.timestamp_seconds)}
+                </li>
               ))}
             </ul>
           )}
@@ -232,7 +289,9 @@ export default function CoursePlayer() {
           </div>
         </>
       ) : (
-        <p className="text-muted text-sm">No video available for this lecture.</p>
+        <p className="text-muted text-sm">
+          No video available for this lecture.
+        </p>
       )}
     </div>
   );

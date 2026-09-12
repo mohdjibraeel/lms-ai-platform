@@ -50,7 +50,6 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
     );
 
     await updateStreakForUser(userId);
-    ``;
     // 3. Recompute enrollments.progress_percent from scratch: what fraction
     //    of this course's lectures are marked completed.
     const totalsResult = await pool.query(
@@ -81,6 +80,43 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
       enrollment_id,
       lecture_id: lectureId,
       progress_percent: progressPercent,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /lectures/:id/progress
+// Returns this user's saved watched_seconds/completed for this lecture, so
+// the player can resume from where they left off. Returns zeroed defaults
+// (not a 404) if they've never watched any of it yet.
+// ---------------------------------------------------------------------------
+router.get("/lectures/:id/progress", authenticate, async (req: any, res) => {
+  const lectureId = req.params.id;
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `SELECT lp.watched_seconds, lp.completed
+       FROM lectures l
+       JOIN modules m ON l.module_id = m.id
+       JOIN courses c ON m.course_id = c.id
+       JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
+       LEFT JOIN lecture_progress lp ON lp.enrollment_id = e.id AND lp.lecture_id = l.id
+       WHERE l.id = $2`,
+      [userId, lectureId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(403).json({ error: "NOT_ENROLLED" });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      watched_seconds: row.watched_seconds ?? 0,
+      completed: row.completed ?? false,
     });
   } catch (err) {
     console.error(err);
