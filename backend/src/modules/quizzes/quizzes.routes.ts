@@ -251,17 +251,20 @@ router.post(
         });
       }
 
-      let correctCount = 0;
-      let gradableCount = 0; // only mcq/multi_select count toward the score
+      // 2. Pull the FULL, authoritative list of this quiz's questions from
+      // the database — not just whatever the student happened to answer.
+      // This is what lets us catch skipped questions as wrong, not ignored.
+      const allQuestionsResult = await pool.query(
+        `SELECT id, question_type FROM quiz_questions WHERE quiz_id = $1`,
+        [attemptResult.rows[0].quiz_id],
+      );
+      const questionTypeById = new Map(
+        allQuestionsResult.rows.map((q) => [q.id, q.question_type]),
+      );
 
+      // Validate up front: every submitted answer must belong to this quiz.
       for (const answer of answers) {
-        // 2. Look up this question's type — and confirm it actually belongs
-        // to THIS attempt's quiz, not some other quiz entirely.
-        const questionResult = await pool.query(
-          `SELECT question_type FROM quiz_questions WHERE id = $1 AND quiz_id = $2`,
-          [answer.question_id, attemptResult.rows[0].quiz_id],
-        );
-        if (questionResult.rows.length === 0) {
+        if (!questionTypeById.has(answer.question_id)) {
           return res.status(400).json({
             error: {
               code: "INVALID_QUESTION",
@@ -269,7 +272,18 @@ router.post(
             },
           });
         }
-        const questionType = questionResult.rows[0].question_type;
+      }
+
+      // A quick lookup of what the student actually submitted, by question_id.
+      const submittedByQuestionId = new Map<string, any>(
+        answers.map((a: any) => [a.question_id, a]),
+      );
+
+      let correctCount = 0;
+      let gradableCount = 0; // only mcq/multi_select count toward the score
+
+      for (const [questionId, questionType] of questionTypeById) {
+        const answer = submittedByQuestionId.get(questionId); // undefined = skipped
 
         let isCorrect: boolean | null = null;
 
@@ -278,28 +292,32 @@ router.post(
 
           const correctOptionsResult = await pool.query(
             `SELECT id FROM quiz_options WHERE question_id = $1 AND is_correct = true`,
-            [answer.question_id],
+            [questionId],
           );
           const correctIds = correctOptionsResult.rows.map((r) => r.id).sort();
-          const selectedIds = (answer.selected_option_ids ?? []).slice().sort();
+          const selectedIds = (answer?.selected_option_ids ?? [])
+            .slice()
+            .sort();
 
-          // Exact match: same length AND every ID matches at the same position
+          // Exact match: same length AND every ID matches at the same position.
+          // A skipped question has zero selectedIds, so it correctly comes
+          // out as wrong unless correctIds is also empty (which shouldn't happen).
           isCorrect =
             correctIds.length === selectedIds.length &&
-            correctIds.every((id, i) => id === selectedIds[i]);
+            correctIds.every((id: string, i: number) => id === selectedIds[i]);
 
           if (isCorrect) correctCount++;
         }
-        // short_answer: isCorrect stays null — not auto-graded
+        // short_answer: isCorrect stays null — not auto-graded, answered or not
 
         await pool.query(
           `INSERT INTO quiz_answers (attempt_id, question_id, selected_option_ids, text_answer, is_correct)
          VALUES ($1, $2, $3, $4, $5)`,
           [
             attemptId,
-            answer.question_id,
-            answer.selected_option_ids ?? null,
-            answer.text_answer ?? null,
+            questionId,
+            answer?.selected_option_ids ?? null,
+            answer?.text_answer ?? null,
             isCorrect,
           ],
         );

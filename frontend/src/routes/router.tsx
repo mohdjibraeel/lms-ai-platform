@@ -8,6 +8,7 @@ import NotFound from "../pages/NotFound";
 import CourseCatalog from "../pages/course-catalog/CourseCatalog";
 import CoursePlayer from "../pages/course-player/CoursePlayer";
 import CourseDetail from "../pages/course-catalog/CourseDetail";
+import QuizAttempt from "../pages/quizzes/QuizAttempt";
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "dashboard", element: <Dashboard /> },
           { path: "lectures/:lectureId/player", element: <CoursePlayer /> },
+          { path: "quizzes/:quizId/attempt", element: <QuizAttempt /> },
         ],
       },
       { path: "*", element: <NotFound /> },
