@@ -11,6 +11,8 @@ import CourseDetail from "../pages/course-catalog/CourseDetail";
 import QuizAttempt from "../pages/quizzes/QuizAttempt";
 import AssignmentSubmission from "../pages/assignments/AssignmentSubmission";
 import Achievements from "../pages/dashboard/Achievements";
+import CourseAnalytics from "../pages/instructor/CourseAnalytics";
+import MyCourses from "../pages/instructor/MyCourses";
 
 export const router = createBrowserRouter([
   {
@@ -34,6 +36,11 @@ export const router = createBrowserRouter([
             element: <AssignmentSubmission />,
           },
           { path: "achievements", element: <Achievements /> },
+          { path: "instructor/courses", element: <MyCourses /> },
+          {
+            path: "instructor/courses/:courseId/analytics",
+            element: <CourseAnalytics />,
+          },
         ],
       },
       { path: "*", element: <NotFound /> },
