@@ -10,6 +10,7 @@ import CoursePlayer from "../pages/course-player/CoursePlayer";
 import CourseDetail from "../pages/course-catalog/CourseDetail";
 import QuizAttempt from "../pages/quizzes/QuizAttempt";
 import AssignmentSubmission from "../pages/assignments/AssignmentSubmission";
+import Achievements from "../pages/dashboard/Achievements";
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
             path: "assignments/:assignmentId",
             element: <AssignmentSubmission />,
           },
+          { path: "achievements", element: <Achievements /> },
         ],
       },
       { path: "*", element: <NotFound /> },
