@@ -99,6 +99,32 @@ router.get("/", async (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// GET /mine
+// Returns ALL courses owned by the current instructor/admin, regardless of
+// status (pending, approved, archived) — unlike the public GET / above,
+// which only shows approved-and-not-archived courses to everyone.
+// MUST stay before GET /:id, or Express would treat "mine" as a course ID.
+// ---------------------------------------------------------------------------
+router.get(
+  "/mine",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req, res) => {
+    const instructorId = req.user!.userId;
+
+    const result = await pool.query(
+      `SELECT id, title, description, category, difficulty, status, created_at
+       FROM courses
+       WHERE instructor_id = $1
+       ORDER BY created_at DESC`,
+      [instructorId],
+    );
+
+    res.json({ courses: result.rows });
+  },
+);
+
 router.post(
   "/:id/enroll",
   authenticate,
