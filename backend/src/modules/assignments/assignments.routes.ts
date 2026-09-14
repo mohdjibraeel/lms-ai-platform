@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate, requireRole } from "../../middleware/auth.middleware";
+import { getPresignedVideoUrl } from "../../storage/minioClient";
 
 const router = Router();
 
@@ -72,11 +73,9 @@ router.get("/assignments/:id", authenticate, async (req: any, res) => {
     const assignment = assignmentResult.rows[0];
 
     if (!assignment) {
-      return res
-        .status(404)
-        .json({
-          error: { code: "NOT_FOUND", message: "Assignment not found" },
-        });
+      return res.status(404).json({
+        error: { code: "NOT_FOUND", message: "Assignment not found" },
+      });
     }
 
     const isOwner = assignment.instructor_id === userId;
@@ -118,6 +117,80 @@ router.get("/assignments/:id", authenticate, async (req: any, res) => {
     res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// GET /assignments/:id/submissions
+// Instructor/admin only — lists every student's submission for this
+// assignment, with a real downloadable link (not just the internal MinIO
+// key) so the grading screen can actually let them open the file.
+// ---------------------------------------------------------------------------
+router.get(
+  "/assignments/:id/submissions",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req: any, res) => {
+    const assignmentId = req.params.id;
+    const userId = req.user.userId;
+
+    try {
+      const assignmentResult = await pool.query(
+        `SELECT a.id, c.instructor_id
+         FROM assignments a
+         JOIN courses c ON c.id = a.course_id
+         WHERE a.id = $1`,
+        [assignmentId],
+      );
+      const assignment = assignmentResult.rows[0];
+
+      if (!assignment) {
+        return res
+          .status(404)
+          .json({
+            error: { code: "NOT_FOUND", message: "Assignment not found" },
+          });
+      }
+
+      const isOwner = assignment.instructor_id === userId;
+      const isAdmin = req.user.role === "admin";
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({
+          error: {
+            code: "NOT_COURSE_OWNER",
+            message: "You do not own this course",
+          },
+        });
+      }
+
+      const submissionsResult = await pool.query(
+        `SELECT s.id, s.user_id, u.full_name, u.email, s.file_url,
+                s.submitted_at, s.grade, s.feedback
+         FROM assignment_submissions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.assignment_id = $1
+         ORDER BY s.submitted_at DESC`,
+        [assignmentId],
+      );
+
+      const submissions = await Promise.all(
+        submissionsResult.rows.map(async (row) => ({
+          id: row.id,
+          user_id: row.user_id,
+          full_name: row.full_name,
+          email: row.email,
+          download_url: await getPresignedVideoUrl(row.file_url),
+          submitted_at: row.submitted_at,
+          grade: row.grade,
+          feedback: row.feedback,
+        })),
+      );
+
+      res.json({ submissions });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
+);
 
 router.put(
   "/submissions/:id/grade",
