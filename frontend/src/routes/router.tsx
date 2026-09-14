@@ -13,6 +13,7 @@ import AssignmentSubmission from "../pages/assignments/AssignmentSubmission";
 import Achievements from "../pages/dashboard/Achievements";
 import CourseAnalytics from "../pages/instructor/CourseAnalytics";
 import MyCourses from "../pages/instructor/MyCourses";
+import GradeSubmissions from "../pages/instructor/GradeSubmissions";
 
 export const router = createBrowserRouter([
   {
@@ -40,6 +41,10 @@ export const router = createBrowserRouter([
           {
             path: "instructor/courses/:courseId/analytics",
             element: <CourseAnalytics />,
+          },
+          {
+            path: "instructor/assignments/:assignmentId/submissions",
+            element: <GradeSubmissions />,
           },
         ],
       },
