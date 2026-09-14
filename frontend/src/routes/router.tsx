@@ -15,6 +15,8 @@ import CourseAnalytics from "../pages/instructor/CourseAnalytics";
 import MyCourses from "../pages/instructor/MyCourses";
 import GradeSubmissions from "../pages/instructor/GradeSubmissions";
 import CreateQuiz from "../pages/instructor/CreateQuiz";
+import CreateCourse from "../pages/instructor/CreateCourse";
+import ManageCourse from "../pages/instructor/ManageCourse";
 
 export const router = createBrowserRouter([
   {
@@ -50,6 +52,11 @@ export const router = createBrowserRouter([
           {
             path: "instructor/modules/:moduleId/quizzes/new",
             element: <CreateQuiz />,
+          },
+          { path: "instructor/courses/new", element: <CreateCourse /> },
+          {
+            path: "instructor/courses/:courseId/manage",
+            element: <ManageCourse />,
           },
         ],
       },
