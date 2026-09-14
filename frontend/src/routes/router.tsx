@@ -14,6 +14,7 @@ import Achievements from "../pages/dashboard/Achievements";
 import CourseAnalytics from "../pages/instructor/CourseAnalytics";
 import MyCourses from "../pages/instructor/MyCourses";
 import GradeSubmissions from "../pages/instructor/GradeSubmissions";
+import CreateQuiz from "../pages/instructor/CreateQuiz";
 
 export const router = createBrowserRouter([
   {
@@ -45,6 +46,10 @@ export const router = createBrowserRouter([
           {
             path: "instructor/assignments/:assignmentId/submissions",
             element: <GradeSubmissions />,
+          },
+          {
+            path: "instructor/modules/:moduleId/quizzes/new",
+            element: <CreateQuiz />,
           },
         ],
       },
