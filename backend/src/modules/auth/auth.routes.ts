@@ -57,6 +57,15 @@ router.post("/login", async (req, res) => {
     });
   }
 
+  if (!user.is_active) {
+    return res.status(403).json({
+      error: {
+        code: "ACCOUNT_DEACTIVATED",
+        message: "This account has been deactivated",
+      },
+    });
+  }
+
   const roleResult = await pool.query(
     `SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = $1 LIMIT 1`,
     [user.id],
@@ -88,14 +97,12 @@ router.post("/refresh", async (req, res) => {
   const { refresh_token } = req.body;
 
   if (!refresh_token) {
-    return res
-      .status(400)
-      .json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "refresh_token is required",
-        },
-      });
+    return res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "refresh_token is required",
+      },
+    });
   }
 
   const result = await pool.query(
@@ -105,36 +112,43 @@ router.post("/refresh", async (req, res) => {
   const stored = result.rows[0];
 
   if (!stored) {
-    return res
-      .status(401)
-      .json({
-        error: {
-          code: "INVALID_REFRESH_TOKEN",
-          message: "Refresh token not recognized",
-        },
-      });
+    return res.status(401).json({
+      error: {
+        code: "INVALID_REFRESH_TOKEN",
+        message: "Refresh token not recognized",
+      },
+    });
   }
 
   if (stored.revoked) {
-    return res
-      .status(401)
-      .json({
-        error: {
-          code: "REVOKED_REFRESH_TOKEN",
-          message: "Refresh token has been revoked",
-        },
-      });
+    return res.status(401).json({
+      error: {
+        code: "REVOKED_REFRESH_TOKEN",
+        message: "Refresh token has been revoked",
+      },
+    });
   }
 
   if (new Date(stored.expires_at) < new Date()) {
-    return res
-      .status(401)
-      .json({
-        error: {
-          code: "EXPIRED_REFRESH_TOKEN",
-          message: "Refresh token has expired",
-        },
-      });
+    return res.status(401).json({
+      error: {
+        code: "EXPIRED_REFRESH_TOKEN",
+        message: "Refresh token has expired",
+      },
+    });
+  }
+
+  const userResult = await pool.query(
+    `SELECT is_active FROM users WHERE id = $1`,
+    [stored.user_id],
+  );
+  if (!userResult.rows[0]?.is_active) {
+    return res.status(403).json({
+      error: {
+        code: "ACCOUNT_DEACTIVATED",
+        message: "This account has been deactivated",
+      },
+    });
   }
 
   const roleResult = await pool.query(
@@ -152,22 +166,29 @@ router.post("/refresh", async (req, res) => {
   res.json({ access_token });
 });
 
-router.post('/logout', async (req, res) => {
+router.post("/logout", async (req, res) => {
   const { refresh_token } = req.body;
 
   if (!refresh_token) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'refresh_token is required' } });
+    return res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "refresh_token is required",
+      },
+    });
   }
 
   const result = await pool.query(
     `UPDATE refresh_tokens SET revoked = TRUE WHERE token = $1 RETURNING id`,
-    [refresh_token]
+    [refresh_token],
   );
 
   if (result.rows.length === 0) {
-    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Refresh token not found' } });
+    return res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Refresh token not found" },
+    });
   }
 
-  res.json({ message: 'Logged out successfully' });
+  res.json({ message: "Logged out successfully" });
 });
 export default router;
