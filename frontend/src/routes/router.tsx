@@ -17,6 +17,7 @@ import GradeSubmissions from "../pages/instructor/GradeSubmissions";
 import CreateQuiz from "../pages/instructor/CreateQuiz";
 import CreateCourse from "../pages/instructor/CreateCourse";
 import ManageCourse from "../pages/instructor/ManageCourse";
+import CourseApprovals from "../pages/admin-panel/CourseApprovals";
 
 export const router = createBrowserRouter([
   {
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
             path: "instructor/courses/:courseId/manage",
             element: <ManageCourse />,
           },
+          { path: "admin/course-approvals", element: <CourseApprovals /> },
         ],
       },
       { path: "*", element: <NotFound /> },
