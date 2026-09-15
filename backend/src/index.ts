@@ -11,6 +11,8 @@ import submissionRoutes from "./modules/assignments/submissions.routes";
 import quizRoutes from "./modules/quizzes/quizzes.routes";
 import { startStreakCronJob } from "./jobs/streakCron";
 import achievementRoutes from "./modules/assignments/achievements.routes";
+import adminRoutes from "./modules/admin/admin.routes";
+
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -19,11 +21,12 @@ app.use(cors({ origin: "http://localhost:5173" }));
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/courses", courseRoutes);
 app.use("/api/v1", enrollmentRoutes);
-app.use("/api/v1",lectureRoutes);
+app.use("/api/v1", lectureRoutes);
 app.use("/api/v1", assignmentRoutes);
 app.use("/api/v1", submissionRoutes);
 app.use("/api/v1", quizRoutes);
 app.use("/api/v1", achievementRoutes);
+app.use("/api/v1", adminRoutes);
 
 const PORT = process.env.PORT || 4000;
 
