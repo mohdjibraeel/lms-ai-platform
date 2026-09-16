@@ -25,13 +25,25 @@ export default function ManageUsers() {
     },
   });
 
+  const [errorUserId, setErrorUserId] = useState<string | null>(null);
+
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ userId, activate }: { userId: string; activate: boolean }) => {
+    mutationFn: async ({
+      userId,
+      activate,
+    }: {
+      userId: string;
+      activate: boolean;
+    }) => {
       const action = activate ? "reactivate" : "deactivate";
       await api.put(`/admin/users/${userId}/${action}`);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setErrorUserId(null);
+    },
+    onError: (_err, variables) => {
+      setErrorUserId(variables.userId);
     },
   });
 
@@ -42,6 +54,10 @@ export default function ManageUsers() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setSavedUserId(variables.userId);
+      setErrorUserId(null);
+    },
+    onError: (_err, variables) => {
+      setErrorUserId(variables.userId);
     },
   });
 
@@ -104,6 +120,11 @@ export default function ManageUsers() {
 
             {savedUserId === user.id && roleMutation.isSuccess && (
               <p className="text-sm text-accent-green w-full">Role updated.</p>
+            )}
+            {errorUserId === user.id && (
+              <p className="text-sm text-danger w-full">
+                Couldn't update — you can't modify your own account.
+              </p>
             )}
           </div>
         ))}
