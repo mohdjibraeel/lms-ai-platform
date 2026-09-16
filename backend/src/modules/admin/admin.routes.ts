@@ -103,7 +103,16 @@ router.put(
   "/admin/users/:id/deactivate",
   authenticate,
   requireRole("admin"),
-  async (req, res) => {
+  async (req: any, res) => {
+    if (req.params.id === req.user.userId) {
+      return res.status(400).json({
+        error: {
+          code: "CANNOT_MODIFY_SELF",
+          message: "You cannot deactivate your own account",
+        },
+      });
+    }
+
     const result = await pool.query(
       `UPDATE users SET is_active = false WHERE id = $1 RETURNING id, full_name, is_active`,
       [req.params.id],
@@ -152,7 +161,16 @@ router.put(
   "/admin/users/:id/role",
   authenticate,
   requireRole("admin"),
-  async (req, res) => {
+  async (req: any, res) => {
+    if (req.params.id === req.user.userId) {
+      return res.status(400).json({
+        error: {
+          code: "CANNOT_MODIFY_SELF",
+          message: "You cannot change your own role",
+        },
+      });
+    }
+
     const { role } = req.body;
     const validRoles = ["student", "instructor", "admin"];
 
