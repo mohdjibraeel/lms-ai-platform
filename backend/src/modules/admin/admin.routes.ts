@@ -200,4 +200,50 @@ router.put(
   },
 );
 
+// ---------------------------------------------------------------------------
+// GET /admin/analytics/overview
+// Platform-wide metrics. Revenue is deliberately excluded — there is no
+// payments/transactions table in this schema, so a real revenue figure
+// doesn't exist yet; showing courses.price × enrollments would imply real
+// money changed hands, which isn't true.
+// "Active learners today" (not a true DAU) is the closest honest proxy
+// available: the only activity timestamp anywhere is streaks.last_active_date,
+// which only updates when a student watches part of a lecture — not on
+// login, quiz-taking, or assignment submission.
+// ---------------------------------------------------------------------------
+router.get(
+  "/admin/analytics/overview",
+  authenticate,
+  requireRole("admin"),
+  async (req, res) => {
+    const activeTodayResult = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM streaks WHERE last_active_date = CURRENT_DATE`,
+    );
+
+    const enrollmentsResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM enrollments`,
+    );
+
+    const completionResult = await pool.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE progress_percent = 100)::int AS completed
+       FROM enrollments`,
+    );
+
+    const totalEnrollments = completionResult.rows[0].total;
+    const completedEnrollments = completionResult.rows[0].completed;
+    const completionRate =
+      totalEnrollments > 0
+        ? Math.round((completedEnrollments / totalEnrollments) * 1000) / 10
+        : 0;
+
+    res.json({
+      active_learners_today: activeTodayResult.rows[0].count,
+      total_enrollments: enrollmentsResult.rows[0].total,
+      completion_rate_percent: completionRate,
+    });
+  },
+);
+
 export default router;
