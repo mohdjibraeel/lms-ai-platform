@@ -19,6 +19,7 @@ import CreateCourse from "../pages/instructor/CreateCourse";
 import ManageCourse from "../pages/instructor/ManageCourse";
 import CourseApprovals from "../pages/admin-panel/CourseApprovals";
 import ManageUsers from "../pages/admin-panel/ManageUsers";
+import PlatformOverview from "../pages/admin-panel/PlatformOverview";
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
           },
           { path: "admin/course-approvals", element: <CourseApprovals /> },
           { path: "admin/users", element: <ManageUsers /> },
+          { path: "admin/overview", element: <PlatformOverview /> },
         ],
       },
       { path: "*", element: <NotFound /> },
