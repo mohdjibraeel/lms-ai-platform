@@ -378,12 +378,36 @@ router.get("/:id", async (req, res) => {
     [course_id],
   );
 
+  // Each module's quizzes — kept lightweight (id/title only) since this is
+  // just for the "manage" screen to link into, not the full quiz content.
+  const quizzesResult = await pool.query(
+    `SELECT q.id, q.module_id, q.title
+     FROM quizzes q
+     JOIN modules m ON m.id = q.module_id
+     WHERE m.course_id = $1
+     ORDER BY q.title`,
+    [course_id],
+  );
+
+  // Course-level assignments — not tied to a specific module.
+  const assignmentsResult = await pool.query(
+    `SELECT id, title, due_date FROM assignments WHERE course_id = $1 ORDER BY due_date`,
+    [course_id],
+  );
+
   const modules = modulesResult.rows.map((mod) => ({
     ...mod,
     lectures: lecturesResult.rows.filter((lec) => lec.module_id === mod.id),
+    quizzes: quizzesResult.rows.filter((q) => q.module_id === mod.id),
   }));
 
-  res.json({ course: { ...course, modules } });
+  res.json({
+    course: {
+      ...course,
+      modules,
+      assignments: assignmentsResult.rows,
+    },
+  });
 });
 
 router.get(

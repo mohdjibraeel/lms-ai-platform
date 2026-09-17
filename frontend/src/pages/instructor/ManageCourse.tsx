@@ -10,17 +10,30 @@ interface Lecture {
   video_url: string | null;
 }
 
+interface Quiz {
+  id: string;
+  title: string;
+}
+
 interface Module {
   id: string;
   title: string;
   order_index: number;
   lectures: Lecture[];
+  quizzes: Quiz[];
+}
+
+interface Assignment {
+  id: string;
+  title: string;
+  due_date: string | null;
 }
 
 interface CourseData {
   id: string;
   title: string;
   modules: Module[];
+  assignments: Assignment[];
 }
 
 export default function ManageCourse() {
@@ -128,6 +141,14 @@ export default function ManageCourse() {
                 </Link>
               </div>
 
+              {module.quizzes.length > 0 && (
+                <ul className="text-sm text-muted mb-2 space-y-1">
+                  {module.quizzes.map((quiz) => (
+                    <li key={quiz.id}>📝 {quiz.title}</li>
+                  ))}
+                </ul>
+              )}
+
               {module.lectures.length > 0 && (
                 <ul className="text-sm text-muted mb-3 space-y-1">
                   {module.lectures.map((lec) => (
@@ -174,6 +195,21 @@ export default function ManageCourse() {
           );
         })}
       </div>
+
+      {course.assignments.length > 0 && (
+        <div className="mt-6 rounded-2xl shadow-md bg-white p-4">
+          <p className="font-medium text-gray-900 mb-2">Assignments</p>
+          <ul className="text-sm text-muted space-y-1">
+            {course.assignments.map((a) => (
+              <li key={a.id}>
+                📄 {a.title}
+                {a.due_date &&
+                  ` — due ${new Date(a.due_date).toLocaleDateString()}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-6 rounded-2xl shadow-md bg-white p-4">
         <p className="font-medium text-gray-900 mb-2">Add a Module</p>
