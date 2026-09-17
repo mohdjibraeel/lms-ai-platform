@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../../services/api";
@@ -32,18 +32,32 @@ interface Assignment {
 interface CourseData {
   id: string;
   title: string;
+  description: string;
+  category: string | null;
+  difficulty: string | null;
+  price: string;
+  status: string;
   modules: Module[];
   assignments: Assignment[];
 }
 
 export default function ManageCourse() {
   const { courseId } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [lectureForms, setLectureForms] = useState<
     Record<string, { title: string; file: File | null }>
   >({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    category: "",
+    difficulty: "",
+    price: "",
+  });
 
   const { data, isLoading, error } = useQuery<{ course: CourseData }>({
     queryKey: ["course-detail", courseId],
@@ -53,6 +67,43 @@ export default function ManageCourse() {
     },
     enabled: !!courseId,
   });
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      await api.put(`/courses/${courseId}`, {
+        title: editForm.title,
+        description: editForm.description,
+        category: editForm.category || null,
+        difficulty: editForm.difficulty || null,
+        price: Number(editForm.price) || 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["course-detail", courseId] });
+      setIsEditing(false);
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/courses/${courseId}`);
+    },
+    onSuccess: () => {
+      navigate("/instructor/courses");
+    },
+  });
+
+  function startEditing() {
+    if (!data) return;
+    setEditForm({
+      title: data.course.title,
+      description: data.course.description ?? "",
+      category: data.course.category ?? "",
+      difficulty: data.course.difficulty ?? "",
+      price: data.course.price,
+    });
+    setIsEditing(true);
+  }
 
   const addModuleMutation = useMutation({
     mutationFn: async () => {
@@ -114,17 +165,117 @@ export default function ManageCourse() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-xl font-semibold text-gray-900">
           Manage: {course.title}
         </h1>
-        <Link
-          to={`/instructor/courses/${courseId}/assignments/new`}
-          className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-gray-700"
-        >
-          + Create Assignment
-        </Link>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={startEditing}
+            className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-gray-700"
+          >
+            Edit
+          </button>
+          <Link
+            to={`/instructor/courses/${courseId}/assignments/new`}
+            className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-gray-700"
+          >
+            + Create Assignment
+          </Link>
+          {course.status !== "archived" && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    "Archive this course? Students already enrolled will keep access, but no one new can enroll.",
+                  )
+                ) {
+                  archiveMutation.mutate();
+                }
+              }}
+              disabled={archiveMutation.isPending}
+              className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-danger disabled:opacity-50"
+            >
+              Archive
+            </button>
+          )}
+        </div>
       </div>
+
+      <p className="text-sm text-muted mb-4 capitalize">
+        Status: {course.status}
+      </p>
+
+      {isEditing && (
+        <div className="rounded-2xl shadow-md bg-white p-4 mb-4 space-y-2">
+          <input
+            type="text"
+            placeholder="Title"
+            value={editForm.title}
+            onChange={(e) =>
+              setEditForm((prev) => ({ ...prev, title: e.target.value }))
+            }
+            className="w-full rounded-lg border border-gray-200 p-2 text-sm"
+          />
+          <textarea
+            placeholder="Description"
+            value={editForm.description}
+            onChange={(e) =>
+              setEditForm((prev) => ({ ...prev, description: e.target.value }))
+            }
+            className="w-full rounded-lg border border-gray-200 p-2 text-sm"
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Category"
+              value={editForm.category}
+              onChange={(e) =>
+                setEditForm((prev) => ({ ...prev, category: e.target.value }))
+              }
+              className="flex-1 rounded-lg border border-gray-200 p-2 text-sm"
+            />
+            <input
+              type="text"
+              placeholder="Difficulty"
+              value={editForm.difficulty}
+              onChange={(e) =>
+                setEditForm((prev) => ({ ...prev, difficulty: e.target.value }))
+              }
+              className="flex-1 rounded-lg border border-gray-200 p-2 text-sm"
+            />
+            <input
+              type="number"
+              placeholder="Price"
+              value={editForm.price}
+              onChange={(e) =>
+                setEditForm((prev) => ({ ...prev, price: e.target.value }))
+              }
+              className="w-24 rounded-lg border border-gray-200 p-2 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => editMutation.mutate()}
+              disabled={editForm.title.trim() === "" || editMutation.isPending}
+              className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {course.modules.map((module) => {
