@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../../services/api";
@@ -28,7 +28,9 @@ export default function ManageCourse() {
   const queryClient = useQueryClient();
 
   const [newModuleTitle, setNewModuleTitle] = useState("");
-  const [lectureForms, setLectureForms] = useState<Record<string, { title: string; file: File | null }>>({});
+  const [lectureForms, setLectureForms] = useState<
+    Record<string, { title: string; file: File | null }>
+  >({});
 
   const { data, isLoading, error } = useQuery<{ course: CourseData }>({
     queryKey: ["course-detail", courseId],
@@ -70,7 +72,10 @@ export default function ManageCourse() {
     },
     onSuccess: (_data, moduleId) => {
       queryClient.invalidateQueries({ queryKey: ["course-detail", courseId] });
-      setLectureForms((prev) => ({ ...prev, [moduleId]: { title: "", file: null } }));
+      setLectureForms((prev) => ({
+        ...prev,
+        [moduleId]: { title: "", file: null },
+      }));
     },
   });
 
@@ -80,7 +85,7 @@ export default function ManageCourse() {
 
   function updateLectureForm(
     moduleId: string,
-    patch: Partial<{ title: string; file: File | null }>
+    patch: Partial<{ title: string; file: File | null }>,
   ) {
     setLectureForms((prev) => ({
       ...prev,
@@ -89,22 +94,39 @@ export default function ManageCourse() {
   }
 
   if (isLoading) return <p className="text-muted text-sm">Loading course...</p>;
-  if (error || !data) return <p className="text-danger text-sm">Couldn't load course.</p>;
+  if (error || !data)
+    return <p className="text-danger text-sm">Couldn't load course.</p>;
 
   const course = data.course;
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-xl font-semibold text-gray-900 mb-4">
-        Manage: {course.title}
-      </h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold text-gray-900">
+          Manage: {course.title}
+        </h1>
+        <Link
+          to={`/instructor/courses/${courseId}/assignments/new`}
+          className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-gray-700"
+        >
+          + Create Assignment
+        </Link>
+      </div>
 
       <div className="space-y-4">
         {course.modules.map((module) => {
           const lectureForm = getLectureForm(module.id);
           return (
             <div key={module.id} className="rounded-2xl shadow-md bg-white p-4">
-              <p className="font-medium text-gray-900 mb-2">{module.title}</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-medium text-gray-900">{module.title}</p>
+                <Link
+                  to={`/instructor/modules/${module.id}/quizzes/new`}
+                  className="text-sm text-link underline"
+                >
+                  + Create Quiz
+                </Link>
+              </div>
 
               {module.lectures.length > 0 && (
                 <ul className="text-sm text-muted mb-3 space-y-1">
@@ -140,7 +162,8 @@ export default function ManageCourse() {
                   type="button"
                   onClick={() => addLectureMutation.mutate(module.id)}
                   disabled={
-                    lectureForm.title.trim() === "" || addLectureMutation.isPending
+                    lectureForm.title.trim() === "" ||
+                    addLectureMutation.isPending
                   }
                   className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                 >
@@ -165,7 +188,9 @@ export default function ManageCourse() {
           <button
             type="button"
             onClick={() => addModuleMutation.mutate()}
-            disabled={newModuleTitle.trim() === "" || addModuleMutation.isPending}
+            disabled={
+              newModuleTitle.trim() === "" || addModuleMutation.isPending
+            }
             className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             Add Module
