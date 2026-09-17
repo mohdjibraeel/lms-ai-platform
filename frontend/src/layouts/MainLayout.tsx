@@ -5,7 +5,11 @@ import { useAuthStore } from "../store/authStore";
 export default function MainLayout() {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
+  const role = useAuthStore((state) => state.role);
   const logout = useAuthStore((state) => state.logout);
+
+  const isInstructorOrAdmin = role === "instructor" || role === "admin";
+  const isAdmin = role === "admin";
 
   const handleLogout = () => {
     logout();
@@ -50,6 +54,50 @@ export default function MainLayout() {
             >
               Dashboard
             </Link>
+            <Link
+              to="/achievements"
+              className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+            >
+              Achievements
+            </Link>
+            {isInstructorOrAdmin && (
+              <>
+                <Link
+                  to="/instructor/courses"
+                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+                >
+                  My Courses
+                </Link>
+                <Link
+                  to="/instructor/courses/new"
+                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+                >
+                  Create Course
+                </Link>
+              </>
+            )}
+            {isAdmin && (
+              <>
+                <Link
+                  to="/admin/course-approvals"
+                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+                >
+                  Approvals
+                </Link>
+                <Link
+                  to="/admin/users"
+                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+                >
+                  Users
+                </Link>
+                <Link
+                  to="/admin/overview"
+                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+                >
+                  Overview
+                </Link>
+              </>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2 sm:ml-auto"

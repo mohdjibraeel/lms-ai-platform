@@ -48,16 +48,22 @@ export default function MyCourses() {
             >
               <div>
                 <p className="font-medium text-gray-900">{course.title}</p>
-                <p className="text-sm text-muted capitalize">
-                  {course.status}
-                </p>
+                <p className="text-sm text-muted capitalize">{course.status}</p>
               </div>
-              <Link
-                to={`/instructor/courses/${course.id}/analytics`}
-                className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white"
-              >
-                View Analytics
-              </Link>
+              <div className="flex gap-2">
+                <Link
+                  to={`/instructor/courses/${course.id}/manage`}
+                  className="rounded-full bg-white shadow-md px-4 py-1.5 text-sm font-medium text-gray-700"
+                >
+                  Manage
+                </Link>
+                <Link
+                  to={`/instructor/courses/${course.id}/analytics`}
+                  className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white"
+                >
+                  View Analytics
+                </Link>
+              </div>
             </li>
           ))}
         </ul>
