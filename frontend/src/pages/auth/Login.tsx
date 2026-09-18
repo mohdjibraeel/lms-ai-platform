@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock } from "lucide-react";
+import { jwtDecode } from "jwt-decode";
 import api from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
+
+interface JwtPayload {
+  userId: string;
+  role: string;
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,8 +23,13 @@ export default function Login() {
 
     try {
       const response = await api.post("/auth/login", { email, password });
-      login(response.data.access_token);
-      navigate("/dashboard");
+      const token = response.data.access_token;
+      login(token);
+
+      const decoded = jwtDecode<JwtPayload>(token);
+      const isInstructorOrAdmin =
+        decoded.role === "instructor" || decoded.role === "admin";
+      navigate(isInstructorOrAdmin ? "/instructor/courses" : "/dashboard");
     } catch (err) {
       setError("Invalid email or password");
     }
@@ -26,11 +37,16 @@ export default function Login() {
 
   return (
     <div className="w-full max-w-sm mx-auto px-2 sm:px-0 py-4 sm:py-8">
-      <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-6">Login</h1>
+      <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-6">
+        Login
+      </h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="relative">
-          <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Mail
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="email"
             placeholder="Email"
@@ -42,7 +58,10 @@ export default function Login() {
         </div>
 
         <div className="relative">
-          <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Lock
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="password"
             placeholder="Password"
