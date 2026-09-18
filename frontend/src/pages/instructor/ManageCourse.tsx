@@ -50,6 +50,11 @@ export default function ManageCourse() {
   const [lectureForms, setLectureForms] = useState<
     Record<string, { title: string; file: File | null }>
   >({});
+  // Bumped after each successful lecture add, forced into the file input's
+  // key below — this is the standard workaround for the fact that a file
+  // input's displayed filename can't be cleared by resetting React state
+  // alone; changing key forces the browser to fully remount the input.
+  const [fileInputResetKey, setFileInputResetKey] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     title: "",
@@ -140,6 +145,7 @@ export default function ManageCourse() {
         ...prev,
         [moduleId]: { title: "", file: null },
       }));
+      setFileInputResetKey((prev) => prev + 1);
     },
   });
 
@@ -321,6 +327,7 @@ export default function ManageCourse() {
                   className="rounded-lg border border-gray-200 p-2 text-sm flex-1"
                 />
                 <input
+                  key={`${module.id}-${fileInputResetKey}`}
                   type="file"
                   accept="video/*"
                   onChange={(e) =>

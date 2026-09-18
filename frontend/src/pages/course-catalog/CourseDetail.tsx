@@ -10,11 +10,23 @@ interface Lecture {
   video_url: string | null;
 }
 
+interface Quiz {
+  id: string;
+  title: string;
+}
+
 interface Module {
   id: string;
   title: string;
   order_index: number;
   lectures: Lecture[];
+  quizzes: Quiz[];
+}
+
+interface Assignment {
+  id: string;
+  title: string;
+  due_date: string | null;
 }
 
 interface CourseDetailResponse {
@@ -28,6 +40,7 @@ interface CourseDetailResponse {
     instructor_id: string;
     status: string;
     modules: Module[];
+    assignments: Assignment[];
   };
 }
 
@@ -183,10 +196,41 @@ export default function CourseDetail() {
                   )}
                 </li>
               ))}
+              {mod.quizzes.map((quiz) => (
+                <li key={quiz.id} className="text-sm text-muted">
+                  <Link
+                    to={`/quizzes/${quiz.id}/attempt`}
+                    className="text-link hover:underline"
+                  >
+                    📝 {quiz.title}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         ))}
       </div>
+
+      {course.assignments.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+            Assignments
+          </h2>
+          <div className="flex flex-col gap-2">
+            {course.assignments.map((a) => (
+              <Link
+                key={a.id}
+                to={`/assignments/${a.id}`}
+                className="bg-white border border-gray-100 rounded-xl p-4 text-sm text-link hover:underline"
+              >
+                📄 {a.title}
+                {a.due_date &&
+                  ` — due ${new Date(a.due_date).toLocaleDateString()}`}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
