@@ -25,8 +25,14 @@ interface CourseDetailResponse {
     category: string;
     difficulty: string;
     price: string;
+    instructor_id: string;
+    status: string;
     modules: Module[];
   };
+}
+
+interface Enrollment {
+  course_id: string;
 }
 
 export default function CourseDetail() {
@@ -35,7 +41,19 @@ export default function CourseDetail() {
   const queryClient = useQueryClient();
   const token = useAuthStore((state) => state.token);
   const role = useAuthStore((state) => state.role);
+  const userId = useAuthStore((state) => state.userId);
   const [enrollMessage, setEnrollMessage] = useState("");
+
+  // Only students need this — used to check if they're already enrolled,
+  // so the Enroll button can be replaced with a status message instead.
+  const { data: enrollmentsData } = useQuery<{ enrollments: Enrollment[] }>({
+    queryKey: ["my-enrollments"],
+    queryFn: async () => {
+      const response = await api.get("/enrollments/me");
+      return response.data;
+    },
+    enabled: !!token && role === "student",
+  });
 
   const { data, isLoading, error } = useQuery<CourseDetailResponse>({
     queryKey: ["course", courseId],
@@ -73,7 +91,8 @@ export default function CourseDetail() {
   };
 
   if (isLoading) return <p className="text-muted text-sm">Loading course...</p>;
-  if (error) return <p className="text-danger text-sm">Failed to load course.</p>;
+  if (error)
+    return <p className="text-danger text-sm">Failed to load course.</p>;
 
   const course = data!.course;
 
@@ -96,25 +115,58 @@ export default function CourseDetail() {
         </span>
       </div>
 
-      {role !== "instructor" && role !== "admin" && (
-        <div className="mb-6">
-          <button
-            onClick={handleEnrollClick}
-            disabled={enrollMutation.isPending}
-            className="bg-black text-white rounded-full px-6 py-2 text-sm font-medium hover:bg-gray-800 active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            {enrollMutation.isPending ? "Enrolling..." : "Enroll"}
-          </button>
-          {enrollMessage && (
-            <p className="text-sm text-muted mt-2">{enrollMessage}</p>
-          )}
-        </div>
-      )}
+      {(role === "instructor" || role === "admin") &&
+        (course.instructor_id === userId ? (
+          <div className="mb-6">
+            <span className="inline-block bg-gray-100 text-gray-600 rounded-full px-4 py-1.5 text-sm font-medium">
+              You own this course
+            </span>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <span className="inline-block bg-gray-100 text-gray-500 rounded-full px-4 py-1.5 text-sm font-medium">
+              Instructor accounts can't enroll in courses
+            </span>
+          </div>
+        ))}
 
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">Course Content</h2>
+      {role === "student" &&
+        (enrollmentsData?.enrollments.some((e) => e.course_id === course.id) ? (
+          <div className="mb-6">
+            <span className="inline-block bg-accent-green/10 text-accent-green rounded-full px-4 py-1.5 text-sm font-medium">
+              ✓ Enrolled
+            </span>
+          </div>
+        ) : course.status !== "approved" ? (
+          <div className="mb-6">
+            <span className="inline-block bg-gray-100 text-gray-500 rounded-full px-4 py-1.5 text-sm font-medium">
+              Not open for enrollment yet
+            </span>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <button
+              onClick={handleEnrollClick}
+              disabled={enrollMutation.isPending}
+              className="bg-black text-white rounded-full px-6 py-2 text-sm font-medium hover:bg-gray-800 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {enrollMutation.isPending ? "Enrolling..." : "Enroll"}
+            </button>
+            {enrollMessage && (
+              <p className="text-sm text-muted mt-2">{enrollMessage}</p>
+            )}
+          </div>
+        ))}
+
+      <h2 className="text-lg font-semibold text-gray-900 mb-3">
+        Course Content
+      </h2>
       <div className="flex flex-col gap-3">
         {course.modules.map((mod) => (
-          <div key={mod.id} className="bg-white border border-gray-100 rounded-xl p-4">
+          <div
+            key={mod.id}
+            className="bg-white border border-gray-100 rounded-xl p-4"
+          >
             <h3 className="font-medium text-gray-900 mb-2">{mod.title}</h3>
             <ul className="flex flex-col gap-1">
               {mod.lectures.map((lec) => (

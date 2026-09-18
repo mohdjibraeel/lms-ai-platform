@@ -48,12 +48,14 @@ export default function MainLayout() {
 
         {token && (
           <>
-            <Link
-              to="/dashboard"
-              className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
-            >
-              Dashboard
-            </Link>
+            {!isInstructorOrAdmin && (
+              <Link
+                to="/dashboard"
+                className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+              >
+                Dashboard
+              </Link>
+            )}
             <Link
               to="/achievements"
               className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
