@@ -33,7 +33,15 @@ export default function MyCourses() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-xl font-semibold text-gray-900 mb-4">My Courses</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold text-gray-900">My Courses</h1>
+        <Link
+          to="/instructor/courses/new"
+          className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white"
+        >
+          + Create Course
+        </Link>
+      </div>
 
       {courses.length === 0 ? (
         <p className="text-muted text-sm">

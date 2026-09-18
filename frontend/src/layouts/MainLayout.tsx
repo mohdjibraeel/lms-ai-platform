@@ -63,20 +63,12 @@ export default function MainLayout() {
               Achievements
             </Link>
             {isInstructorOrAdmin && (
-              <>
-                <Link
-                  to="/instructor/courses"
-                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
-                >
-                  My Courses
-                </Link>
-                <Link
-                  to="/instructor/courses/new"
-                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
-                >
-                  Create Course
-                </Link>
-              </>
+              <Link
+                to="/instructor/courses"
+                className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+              >
+                My Courses
+              </Link>
             )}
             {isAdmin && (
               <>
