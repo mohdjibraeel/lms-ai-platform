@@ -357,12 +357,21 @@ export default function ManageCourse() {
       {course.assignments.length > 0 && (
         <div className="mt-6 rounded-2xl shadow-md bg-white p-4">
           <p className="font-medium text-gray-900 mb-2">Assignments</p>
-          <ul className="text-sm text-muted space-y-1">
+          <ul className="text-sm space-y-1">
             {course.assignments.map((a) => (
               <li key={a.id}>
-                📄 {a.title}
-                {a.due_date &&
-                  ` — due ${new Date(a.due_date).toLocaleDateString()}`}
+                <Link
+                  to={`/instructor/assignments/${a.id}/submissions`}
+                  className="text-link hover:underline"
+                >
+                  📄 {a.title}
+                </Link>
+                {a.due_date && (
+                  <span className="text-muted">
+                    {" "}
+                    — due {new Date(a.due_date).toLocaleDateString()}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
