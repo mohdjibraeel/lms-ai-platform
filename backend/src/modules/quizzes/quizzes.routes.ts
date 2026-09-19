@@ -174,6 +174,57 @@ router.get("/quizzes/:id", authenticate, async (req: any, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /quizzes/:id/my-attempts
+// Returns the CURRENT student's own attempts on this quiz, newest first —
+// so the UI can show past scores instead of always looking like a first try.
+// ---------------------------------------------------------------------------
+router.get(
+  "/quizzes/:id/my-attempts",
+  authenticate,
+  requireRole("student"),
+  async (req: any, res) => {
+    const quizId = req.params.id;
+    const userId = req.user.userId;
+
+    try {
+      const enrollmentResult = await pool.query(
+        `SELECT e.id
+         FROM quizzes q
+         JOIN modules m ON q.module_id = m.id
+         JOIN courses c ON m.course_id = c.id
+         JOIN enrollments e ON e.course_id = c.id AND e.user_id = $1
+         WHERE q.id = $2`,
+        [userId, quizId],
+      );
+
+      if (enrollmentResult.rows.length === 0) {
+        return res
+          .status(403)
+          .json({
+            error: {
+              code: "NOT_ENROLLED",
+              message: "You must be enrolled in this course to view this",
+            },
+          });
+      }
+
+      const attemptsResult = await pool.query(
+        `SELECT id, score, started_at, submitted_at
+         FROM quiz_attempts
+         WHERE quiz_id = $1 AND user_id = $2
+         ORDER BY started_at DESC`,
+        [quizId, userId],
+      );
+
+      res.json({ attempts: attemptsResult.rows });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
 // POST /quizzes/:id/attempt
 // Creates a new attempt row for this student on this quiz. Multiple attempts
 // per student are allowed (no unique constraint on quiz_attempts).

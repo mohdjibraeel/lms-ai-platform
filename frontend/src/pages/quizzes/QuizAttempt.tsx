@@ -1,5 +1,5 @@
-import { useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link, useParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../../services/api";
 
@@ -32,6 +32,13 @@ interface AttemptResult {
   submitted_at: string;
 }
 
+interface PastAttempt {
+  id: string;
+  score: string | null;
+  started_at: string;
+  submitted_at: string | null;
+}
+
 // What the student has picked so far, keyed by question_id
 type AnswerState = Record<
   string,
@@ -40,6 +47,7 @@ type AnswerState = Record<
 
 export default function QuizAttempt() {
   const { quizId } = useParams();
+  const queryClient = useQueryClient();
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<AnswerState>({});
   const [result, setResult] = useState<AttemptResult | null>(null);
@@ -52,6 +60,19 @@ export default function QuizAttempt() {
     },
     enabled: !!quizId,
   });
+
+  const { data: attemptsData } = useQuery<{ attempts: PastAttempt[] }>({
+    queryKey: ["quiz-my-attempts", quizId],
+    queryFn: async () => {
+      const response = await api.get(`/quizzes/${quizId}/my-attempts`);
+      return response.data;
+    },
+    enabled: !!quizId,
+  });
+
+  const pastAttempts = (attemptsData?.attempts ?? []).filter(
+    (a) => a.submitted_at !== null,
+  );
 
   const startAttemptMutation = useMutation({
     mutationFn: async () => {
@@ -77,7 +98,10 @@ export default function QuizAttempt() {
       );
       return response.data.attempt;
     },
-    onSuccess: (attempt) => setResult(attempt),
+    onSuccess: (attempt) => {
+      setResult(attempt);
+      queryClient.invalidateQueries({ queryKey: ["quiz-my-attempts", quizId] });
+    },
   });
 
   function selectSingleOption(questionId: string, optionId: string) {
@@ -130,11 +154,17 @@ export default function QuizAttempt() {
             Your score: <span className="font-semibold">{result.score}%</span>
           </p>
         )}
+        <Link
+          to="/dashboard"
+          className="mt-4 inline-block rounded-full bg-accent-green px-5 py-2 text-sm font-medium text-white"
+        >
+          Back to Dashboard
+        </Link>
       </div>
     );
   }
 
-  // Pre-attempt screen — quiz details + a Start button
+  // Pre-attempt screen — quiz details, past attempts, and a Start/Retake button
   if (!attemptId) {
     return (
       <div className="max-w-2xl mx-auto rounded-2xl shadow-md bg-white p-6">
@@ -145,13 +175,30 @@ export default function QuizAttempt() {
           {quiz.questions.length} question
           {quiz.questions.length === 1 ? "" : "s"}
         </p>
+
+        {pastAttempts.length > 0 && (
+          <div className="mb-4 rounded-xl bg-gray-50 p-3">
+            <p className="text-sm font-medium text-gray-700 mb-1">
+              Your past attempts
+            </p>
+            <ul className="text-sm text-muted space-y-1">
+              {pastAttempts.map((a) => (
+                <li key={a.id}>
+                  {new Date(a.submitted_at!).toLocaleString()} —{" "}
+                  {a.score === null ? "Not graded yet" : `${a.score}%`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => startAttemptMutation.mutate()}
           disabled={startAttemptMutation.isPending}
           className="rounded-full bg-accent-green px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          Start Quiz
+          {pastAttempts.length > 0 ? "Retake Quiz" : "Start Quiz"}
         </button>
         {startAttemptMutation.isError && (
           <p className="text-danger text-sm mt-2">
