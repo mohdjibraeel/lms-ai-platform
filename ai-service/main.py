@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI  # type: ignore
 from google import genai
 
 load_dotenv()
