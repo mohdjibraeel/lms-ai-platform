@@ -146,3 +146,35 @@ Question: {payload.message}"""
     conn.close()
 
     return {"reply": reply_text, "sources": sources, "mode": mode}
+
+
+VALID_MODES = {"beginner", "intermediate", "advanced"}
+
+
+class UpdateModeRequest(BaseModel):
+    mode: str
+
+
+@app.put("/ai/chat/sessions/{session_id}/mode")
+def update_mode(session_id: str, payload: UpdateModeRequest):
+    if payload.mode not in VALID_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of {sorted(VALID_MODES)}",
+        )
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE ai_chat_sessions SET mode = %s WHERE id = %s RETURNING id",
+        (payload.mode, session_id),
+    )
+    updated = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {"session_id": session_id, "mode": payload.mode}
