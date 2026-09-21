@@ -1,10 +1,10 @@
 import os
-import psycopg2
+import psycopg2 # type: ignore
 from dotenv import load_dotenv
-from pgvector.psycopg2 import register_vector
-from fastapi import FastAPI, HTTPException
+from pgvector.psycopg2 import register_vector # pyright: ignore[reportMissingImports]
+from fastapi import FastAPI, HTTPException # type: ignore
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer # type: ignore
 from google import genai
 
 load_dotenv()
@@ -124,14 +124,16 @@ Question: {payload.message}"""
             contents=prompt,
         )
         reply_text = response.text
-        sources = [
-            {
-                "lecture_id": str(lecture_id),
-                "lecture_title": lecture_title,
-                "timestamp_seconds": None,  # known gap: no timing data yet
-            }
-            for _, lecture_id, lecture_title, _ in top_chunks
-        ]
+        seen_lecture_ids = set()
+        sources = []
+        for _, lecture_id, lecture_title, _ in top_chunks:
+            if lecture_id not in seen_lecture_ids:
+                seen_lecture_ids.add(lecture_id)
+                sources.append({
+                    "lecture_id": str(lecture_id),
+                    "lecture_title": lecture_title,
+                    "timestamp_seconds": None,
+                })
 
     cur.execute(
         """
@@ -178,3 +180,34 @@ def update_mode(session_id: str, payload: UpdateModeRequest):
         raise HTTPException(status_code=404, detail="Session not found")
 
     return {"session_id": session_id, "mode": payload.mode}
+
+@app.post("/ai/lectures/{lecture_id}/summarize")
+def summarize_lecture(lecture_id: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT title, transcript FROM lectures WHERE id = %s", (lecture_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+
+    title, transcript = row
+    if not transcript:
+        raise HTTPException(status_code=400, detail="This lecture has no transcript yet")
+
+    prompt = f"""Summarize the following lecture transcript into 3-5 short key points,
+as a bullet list. Be concise and factual, do not add information not in the transcript.
+
+Lecture title: {title}
+
+Transcript:
+{transcript}"""
+
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt,
+    )
+
+    return {"lecture_id": lecture_id, "lecture_title": title, "summary": response.text}
