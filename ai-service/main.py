@@ -1,4 +1,5 @@
 import os
+import json
 import psycopg2 # type: ignore
 from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector # pyright: ignore[reportMissingImports]
@@ -211,3 +212,111 @@ Transcript:
     )
 
     return {"lecture_id": lecture_id, "lecture_title": title, "summary": response.text}
+
+
+
+@app.post("/ai/lectures/{lecture_id}/generate-quiz")
+def generate_quiz(lecture_id: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT l.title, l.transcript, m.id
+        FROM lectures l
+        JOIN modules m ON m.id = l.module_id
+        WHERE l.id = %s
+        """,
+        (lecture_id,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        cur.close()
+        conn.close()
+        raise HTTPException(status_code=404, detail="Lecture not found")
+
+    lecture_title, transcript, module_id = row
+    if not transcript:
+        cur.close()
+        conn.close()
+        raise HTTPException(status_code=400, detail="This lecture has no transcript yet")
+
+    prompt = f"""Based on the lecture transcript below, write exactly 5 multiple-choice
+questions to test understanding. Reply with ONLY valid JSON, no other text, in this
+exact shape:
+
+[
+  {{
+    "question": "...",
+    "options": ["...", "...", "...", "..."],
+    "correct_index": 0
+  }}
+]
+
+correct_index is the 0-based position of the right answer in "options".
+
+Lecture title: {lecture_title}
+
+Transcript:
+{transcript}"""
+
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt,
+    )
+
+    raw_text = response.text.strip()
+    if raw_text.startswith("```"):
+        raw_text = raw_text.strip("`")
+        raw_text = raw_text.replace("json\n", "", 1)
+
+    try:
+        questions = json.loads(raw_text)
+    except json.JSONDecodeError:
+        cur.close()
+        conn.close()
+        raise HTTPException(
+            status_code=502,
+            detail="AI did not return valid quiz data, please try again",
+        )
+
+    cur.execute(
+        """
+        INSERT INTO quizzes (module_id, title, is_ai_generated, generated_from_lecture_id)
+        VALUES (%s, %s, true, %s)
+        RETURNING id
+        """,
+        (module_id, f"AI-Generated Quiz: {lecture_title}", lecture_id),
+    )
+    quiz_id = cur.fetchone()[0]
+
+    for i, q in enumerate(questions):
+        cur.execute(
+            """
+            INSERT INTO quiz_questions (quiz_id, question_text, question_type, order_index)
+            VALUES (%s, %s, 'mcq', %s)
+            RETURNING id
+            """,
+            (quiz_id, q["question"], i),
+        )
+        question_id = cur.fetchone()[0]
+
+        for j, option_text in enumerate(q["options"]):
+            cur.execute(
+                """
+                INSERT INTO quiz_options (question_id, option_text, is_correct)
+                VALUES (%s, %s, %s)
+                """,
+                (question_id, option_text, j == q["correct_index"]),
+            )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {
+        "quiz_id": str(quiz_id),
+        "title": f"AI-Generated Quiz: {lecture_title}",
+        "question_count": len(questions),
+        "is_ai_generated": True,
+    }
