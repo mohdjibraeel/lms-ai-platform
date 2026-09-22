@@ -1,14 +1,14 @@
 import os
 import json
 import time
-import psycopg2
-from dotenv import load_dotenv
-from pgvector.psycopg2 import register_vector
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+import psycopg2 # type: ignore
+from dotenv import load_dotenv # type: ignore
+from pgvector.psycopg2 import register_vector # type: ignore
+from fastapi import FastAPI, HTTPException # type: ignore
+from pydantic import BaseModel # type: ignore
+from sentence_transformers import SentenceTransformer # type: ignore
 from google import genai
-from google.genai.errors import ServerError
+from google.genai.errors import ServerError # type: ignore
 
 load_dotenv()
 
