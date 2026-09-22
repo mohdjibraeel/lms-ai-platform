@@ -320,3 +320,75 @@ Transcript:
         "question_count": len(questions),
         "is_ai_generated": True,
     }
+
+@app.post("/ai/modules/{module_id}/flashcards")
+def generate_flashcards(module_id: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT title, transcript FROM lectures
+        WHERE module_id = %s AND transcript IS NOT NULL AND transcript != ''
+        ORDER BY order_index
+        """,
+        (module_id,),
+    )
+    lectures = cur.fetchall()
+
+    if not lectures:
+        cur.close()
+        conn.close()
+        raise HTTPException(
+            status_code=400,
+            detail="No lectures with transcripts found for this module yet",
+        )
+
+    combined_transcript = "\n\n".join(
+        f"[{title}]\n{transcript}" for title, transcript in lectures
+    )
+
+    prompt = f"""Based on the lecture material below, create exactly 6 flashcards
+for spaced-revision study. Reply with ONLY valid JSON, no other text, in this
+exact shape:
+
+[
+  {{"question": "...", "answer": "..."}}
+]
+
+Keep answers short and factual, one key idea per card.
+
+Material:
+{combined_transcript}"""
+
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt,
+    )
+
+    raw_text = response.text.strip()
+    if raw_text.startswith("```"):
+        raw_text = raw_text.strip("`")
+        raw_text = raw_text.replace("json\n", "", 1)
+
+    try:
+        cards = json.loads(raw_text)
+    except json.JSONDecodeError:
+        cur.close()
+        conn.close()
+        raise HTTPException(
+            status_code=502,
+            detail="AI did not return valid flashcard data, please try again",
+        )
+
+    for card in cards:
+        cur.execute(
+            "INSERT INTO flashcards (module_id, question, answer) VALUES (%s, %s, %s)",
+            (module_id, card["question"], card["answer"]),
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"module_id": module_id, "flashcard_count": len(cards), "flashcards": cards}
