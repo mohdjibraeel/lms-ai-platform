@@ -99,7 +99,7 @@ router.get("/quizzes/:id", authenticate, async (req: any, res) => {
 
   try {
     const quizResult = await pool.query(
-      `SELECT q.id, q.title, q.module_id, c.id AS course_id, c.instructor_id
+      `SELECT q.id, q.title, q.module_id, q.is_published, c.id AS course_id, c.instructor_id
        FROM quizzes q
        JOIN modules m ON m.id = q.module_id
        JOIN courses c ON c.id = m.course_id
@@ -118,6 +118,11 @@ router.get("/quizzes/:id", authenticate, async (req: any, res) => {
     const isAdmin = role === "admin";
 
     if (!isOwner && !isAdmin) {
+      if (!quiz.is_published) {
+        return res
+          .status(404)
+          .json({ error: { code: "NOT_FOUND", message: "Quiz not found" } });
+      }
       const enrollmentResult = await pool.query(
         `SELECT id FROM enrollments WHERE user_id = $1 AND course_id = $2`,
         [userId, quiz.course_id],
@@ -187,6 +192,18 @@ router.get(
     const userId = req.user.userId;
 
     try {
+      const publishedResult = await pool.query(
+        `SELECT is_published FROM quizzes WHERE id = $1`,
+        [quizId],
+      );
+      if (
+        publishedResult.rows.length === 0 ||
+        !publishedResult.rows[0].is_published
+      ) {
+        return res
+          .status(404)
+          .json({ error: { code: "NOT_FOUND", message: "Quiz not found" } });
+      }
       const enrollmentResult = await pool.query(
         `SELECT e.id
          FROM quizzes q
@@ -198,14 +215,12 @@ router.get(
       );
 
       if (enrollmentResult.rows.length === 0) {
-        return res
-          .status(403)
-          .json({
-            error: {
-              code: "NOT_ENROLLED",
-              message: "You must be enrolled in this course to view this",
-            },
-          });
+        return res.status(403).json({
+          error: {
+            code: "NOT_ENROLLED",
+            message: "You must be enrolled in this course to view this",
+          },
+        });
       }
 
       const attemptsResult = await pool.query(
@@ -238,6 +253,18 @@ router.post(
     const userId = req.user.userId;
 
     try {
+            const publishedResult = await pool.query(
+        `SELECT is_published FROM quizzes WHERE id = $1`,
+        [quizId],
+      );
+      if (
+        publishedResult.rows.length === 0 ||
+        !publishedResult.rows[0].is_published
+      ) {
+        return res
+          .status(404)
+          .json({ error: { code: "NOT_FOUND", message: "Quiz not found" } });
+      }
       // Enrollment check — same JOIN-chain pattern as progress/submissions
       const enrollmentResult = await pool.query(
         `SELECT e.id
@@ -394,6 +421,130 @@ router.post(
       );
 
       res.json({ attempt: updateResult.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
+);
+
+
+// ---------------------------------------------------------------------------
+// GET /quizzes/:id/review
+// Instructor/admin who owns the quiz: full content INCLUDING correct answers.
+// ---------------------------------------------------------------------------
+router.get(
+  "/quizzes/:id/review",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req: any, res) => {
+    const quizId = req.params.id;
+
+    try {
+      const quizResult = await pool.query(
+        `SELECT q.id, q.title, q.is_published, q.is_ai_generated, c.instructor_id
+         FROM quizzes q
+         JOIN modules m ON m.id = q.module_id
+         JOIN courses c ON c.id = m.course_id
+         WHERE q.id = $1`,
+        [quizId],
+      );
+      const quiz = quizResult.rows[0];
+      if (!quiz) {
+        return res
+          .status(404)
+          .json({ error: { code: "NOT_FOUND", message: "Quiz not found" } });
+      }
+      if (quiz.instructor_id !== req.user.userId && req.user.role !== "admin") {
+        return res.status(403).json({
+          error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" },
+        });
+      }
+
+      const questionsResult = await pool.query(
+        `SELECT id, question_text, question_type, order_index
+         FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index`,
+        [quizId],
+      );
+      const optionsResult = await pool.query(
+        `SELECT qo.id, qo.question_id, qo.option_text, qo.is_correct
+         FROM quiz_options qo
+         JOIN quiz_questions qq ON qq.id = qo.question_id
+         WHERE qq.quiz_id = $1
+         ORDER BY qo.id`,
+        [quizId],
+      );
+
+      res.json({
+        quiz: {
+          id: quiz.id,
+          title: quiz.title,
+          is_published: quiz.is_published,
+          is_ai_generated: quiz.is_ai_generated,
+          questions: questionsResult.rows.map((q) => ({
+            ...q,
+            options: optionsResult.rows
+              .filter((o) => o.question_id === q.id)
+              .map((o) => ({
+                id: o.id,
+                option_text: o.option_text,
+                is_correct: o.is_correct,
+              })),
+          })),
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PUT /quizzes/:id/publish   Body: { is_published: boolean }
+// ---------------------------------------------------------------------------
+router.put(
+  "/quizzes/:id/publish",
+  authenticate,
+  requireRole("instructor", "admin"),
+  async (req: any, res) => {
+    const quizId = req.params.id;
+    const { is_published } = req.body;
+
+    if (typeof is_published !== "boolean") {
+      return res.status(400).json({
+        error: { code: "VALIDATION_ERROR", message: "is_published must be true or false" },
+      });
+    }
+
+    try {
+      const ownerResult = await pool.query(
+        `SELECT c.instructor_id
+         FROM quizzes q
+         JOIN modules m ON m.id = q.module_id
+         JOIN courses c ON c.id = m.course_id
+         WHERE q.id = $1`,
+        [quizId],
+      );
+      if (ownerResult.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: { code: "NOT_FOUND", message: "Quiz not found" } });
+      }
+      if (
+        ownerResult.rows[0].instructor_id !== req.user.userId &&
+        req.user.role !== "admin"
+      ) {
+        return res.status(403).json({
+          error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" },
+        });
+      }
+
+      await pool.query(`UPDATE quizzes SET is_published = $1 WHERE id = $2`, [
+        is_published,
+        quizId,
+      ]);
+      res.json({ quiz_id: quizId, is_published });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "SERVER_ERROR" });

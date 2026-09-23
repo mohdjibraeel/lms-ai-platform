@@ -13,6 +13,7 @@ interface Lecture {
 interface Quiz {
   id: string;
   title: string;
+  is_published: boolean;
 }
 
 interface Module {
@@ -211,16 +212,18 @@ export default function CourseDetail() {
                   )}
                 </li>
               ))}
-              {mod.quizzes.map((quiz) => (
-                <li key={quiz.id} className="text-sm text-muted">
-                  <Link
-                    to={`/quizzes/${quiz.id}/attempt`}
-                    className="text-link hover:underline"
-                  >
-                    📝 {quiz.title}
-                  </Link>
-                </li>
-              ))}
+              {mod.quizzes
+                .filter((quiz) => quiz.is_published)
+                .map((quiz) => (
+                  <li key={quiz.id} className="text-sm text-muted">
+                    <Link
+                      to={`/quizzes/${quiz.id}/attempt`}
+                      className="text-link hover:underline"
+                    >
+                      📝 {quiz.title}
+                    </Link>
+                  </li>
+                ))}
             </ul>
           </div>
         ))}

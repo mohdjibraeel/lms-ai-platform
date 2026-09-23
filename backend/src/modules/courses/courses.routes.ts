@@ -380,8 +380,8 @@ router.get("/:id", async (req, res) => {
 
   // Each module's quizzes — kept lightweight (id/title only) since this is
   // just for the "manage" screen to link into, not the full quiz content.
-  const quizzesResult = await pool.query(
-    `SELECT q.id, q.module_id, q.title
+    const quizzesResult = await pool.query(
+    `SELECT q.id, q.module_id, q.title, q.is_ai_generated, q.is_published
      FROM quizzes q
      JOIN modules m ON m.id = q.module_id
      WHERE m.course_id = $1

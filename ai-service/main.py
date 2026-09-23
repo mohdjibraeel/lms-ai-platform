@@ -399,8 +399,8 @@ Transcript:
 
     cur.execute(
         """
-        INSERT INTO quizzes (module_id, title, is_ai_generated, generated_from_lecture_id)
-        VALUES (%s, %s, true, %s)
+        INSERT INTO quizzes (module_id, title, is_ai_generated, generated_from_lecture_id, is_published)
+        VALUES (%s, %s, true, %s, false)
         RETURNING id
         """,
         (module_id, f"AI-Generated Quiz: {lecture_title}", lecture_id),

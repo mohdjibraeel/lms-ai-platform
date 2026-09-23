@@ -8,11 +8,13 @@ interface Lecture {
   title: string;
   order_index: number;
   video_url: string | null;
+  transcript: string | null;
 }
 
 interface Quiz {
   id: string;
   title: string;
+  is_ai_generated: boolean;
 }
 
 interface Module {
@@ -55,6 +57,9 @@ export default function ManageCourse() {
   // input's displayed filename can't be cleared by resetting React state
   // alone; changing key forces the browser to fully remount the input.
   const [fileInputResetKey, setFileInputResetKey] = useState(0);
+  const [selectedLecture, setSelectedLecture] = useState<
+    Record<string, string>
+  >({});
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     title: "",
@@ -146,6 +151,30 @@ export default function ManageCourse() {
         [moduleId]: { title: "", file: null },
       }));
       setFileInputResetKey((prev) => prev + 1);
+    },
+  });
+
+  const generateQuizMutation = useMutation({
+    mutationFn: async (lectureId: string) => {
+      const response = await api.post(
+        `/ai/lectures/${lectureId}/generate-quiz`,
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["course-detail", courseId] });
+    },
+    onError: (err: any) => {
+      const code = err.response?.data?.error?.code;
+      if (code === "NO_TRANSCRIPT") {
+        alert(
+          "This lecture has no transcript yet — add one before generating a quiz.",
+        );
+      } else if (code === "AI_QUOTA_EXCEEDED") {
+        alert("Daily AI usage limit reached. Please try again tomorrow.");
+      } else {
+        alert("Couldn't generate a quiz. Please try again.");
+      }
     },
   });
 
@@ -286,22 +315,82 @@ export default function ManageCourse() {
       <div className="space-y-4">
         {course.modules.map((module) => {
           const lectureForm = getLectureForm(module.id);
+          const selectedLectureId = selectedLecture[module.id] ?? "";
           return (
             <div key={module.id} className="rounded-2xl shadow-md bg-white p-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <p className="font-medium text-gray-900">{module.title}</p>
-                <Link
-                  to={`/instructor/modules/${module.id}/quizzes/new`}
-                  className="text-sm text-link underline"
-                >
-                  + Create Quiz
-                </Link>
+                <div className="flex items-center gap-3">
+                  {module.lectures.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedLectureId}
+                        onChange={(e) =>
+                          setSelectedLecture((prev) => ({
+                            ...prev,
+                            [module.id]: e.target.value,
+                          }))
+                        }
+                        className="rounded-lg border border-gray-200 p-1 text-sm"
+                      >
+                        <option value="">Choose a lecture…</option>
+                        {module.lectures.map((lec) => {
+                          const hasTranscript =
+                            !!lec.transcript && lec.transcript.trim() !== "";
+                          return (
+                            <option
+                              key={lec.id}
+                              value={lec.id}
+                              disabled={!hasTranscript}
+                            >
+                              {lec.title}
+                              {hasTranscript ? "" : " (no transcript)"}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          generateQuizMutation.mutate(selectedLectureId)
+                        }
+                        disabled={
+                          !selectedLectureId || generateQuizMutation.isPending
+                        }
+                        className="text-sm text-link underline disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {generateQuizMutation.isPending &&
+                        generateQuizMutation.variables === selectedLectureId
+                          ? "Generating..."
+                          : "🤖 Generate Quiz"}
+                      </button>
+                    </div>
+                  )}
+                  <Link
+                    to={`/instructor/modules/${module.id}/quizzes/new`}
+                    className="text-sm text-link underline"
+                  >
+                    + Create Quiz
+                  </Link>
+                </div>
               </div>
 
               {module.quizzes.length > 0 && (
                 <ul className="text-sm text-muted mb-2 space-y-1">
                   {module.quizzes.map((quiz) => (
-                    <li key={quiz.id}>📝 {quiz.title}</li>
+                    <li key={quiz.id} className="flex items-center gap-2">
+                      <Link
+                        to={`/quizzes/${quiz.id}/attempt`}
+                        className="text-link hover:underline"
+                      >
+                        📝 {quiz.title}
+                      </Link>
+                      {quiz.is_ai_generated && (
+                        <span className="text-xs font-medium bg-purple-100 text-purple-700 rounded-full px-2 py-0.5">
+                          🤖 AI-Generated — Review
+                        </span>
+                      )}
+                    </li>
                   ))}
                 </ul>
               )}
