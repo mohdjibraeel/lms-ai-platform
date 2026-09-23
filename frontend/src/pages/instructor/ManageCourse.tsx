@@ -380,7 +380,7 @@ export default function ManageCourse() {
                   {module.quizzes.map((quiz) => (
                     <li key={quiz.id} className="flex items-center gap-2">
                       <Link
-                        to={`/quizzes/${quiz.id}/attempt`}
+                        to={`/instructor/quizzes/${quiz.id}/review`}
                         className="text-link hover:underline"
                       >
                         📝 {quiz.title}
