@@ -12,6 +12,7 @@ import quizRoutes from "./modules/quizzes/quizzes.routes";
 import { startStreakCronJob } from "./jobs/streakCron";
 import achievementRoutes from "./modules/assignments/achievements.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import aiRoutes from "./modules/ai/ai.routes";
 
 dotenv.config();
 const app = express();
@@ -27,6 +28,7 @@ app.use("/api/v1", submissionRoutes);
 app.use("/api/v1", quizRoutes);
 app.use("/api/v1", achievementRoutes);
 app.use("/api/v1", adminRoutes);
+app.use("/api/v1", aiRoutes);
 
 const PORT = process.env.PORT || 4000;
 
