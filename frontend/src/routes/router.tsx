@@ -21,6 +21,7 @@ import CourseApprovals from "../pages/admin-panel/CourseApprovals";
 import ManageUsers from "../pages/admin-panel/ManageUsers";
 import PlatformOverview from "../pages/admin-panel/PlatformOverview";
 import CreateAssignment from "../pages/instructor/CreateAssignment";
+import AiTutor from "../pages/ai-tutor/AiTutor";
 
 export const router = createBrowserRouter([
   {
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
           { path: "dashboard", element: <Dashboard /> },
           { path: "lectures/:lectureId/player", element: <CoursePlayer /> },
           { path: "quizzes/:quizId/attempt", element: <QuizAttempt /> },
+          { path: "ai-tutor/:courseId", element: <AiTutor /> },
           {
             path: "assignments/:assignmentId",
             element: <AssignmentSubmission />,

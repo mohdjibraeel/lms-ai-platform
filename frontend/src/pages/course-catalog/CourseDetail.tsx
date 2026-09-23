@@ -171,6 +171,21 @@ export default function CourseDetail() {
           </div>
         ))}
 
+      {((role === "instructor" && course.instructor_id === userId) ||
+        (role === "student" &&
+          enrollmentsData?.enrollments.some(
+            (e) => e.course_id === course.id,
+          ))) && (
+        <div className="mb-6">
+          <Link
+            to={`/ai-tutor/${course.id}`}
+            className="inline-block bg-black text-white rounded-full px-5 py-2 text-sm font-medium hover:bg-gray-800 active:scale-[0.98] transition-all"
+          >
+            💬 Ask AI Tutor
+          </Link>
+        </div>
+      )}
+
       <h2 className="text-lg font-semibold text-gray-900 mb-3">
         Course Content
       </h2>
