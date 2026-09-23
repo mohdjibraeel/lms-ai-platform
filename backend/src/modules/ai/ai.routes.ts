@@ -4,7 +4,7 @@ import { authenticate } from "../../middleware/auth.middleware";
 
 const router = Router();
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
 
 // ---------------------------------------------------------------------------
 // Small shared helper: forward a request to the Python ai-service, and pass
@@ -24,9 +24,27 @@ async function forwardToAiService(
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
-    const data = await aiResponse.json();
+
+    const rawText = await aiResponse.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.error(
+        `ai-service returned non-JSON (status ${aiResponse.status}):`,
+        rawText,
+      );
+      return res.status(502).json({
+        error: {
+          code: "AI_SERVICE_BAD_RESPONSE",
+          message: "The AI service returned an unexpected response",
+        },
+      });
+    }
+
     res.status(aiResponse.status).json(data);
   } catch (err) {
+    console.error("Failed to reach ai-service:", err);
     res.status(503).json({
       error: {
         code: "AI_SERVICE_UNREACHABLE",
@@ -85,7 +103,11 @@ router.post("/ai/chat/sessions", authenticate, async (req, res) => {
 
   if (!course_id) {
     return res.status(400).json({
-      error: { code: "VALIDATION_ERROR", message: "course_id is required", field: "course_id" },
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "course_id is required",
+        field: "course_id",
+      },
     });
   }
 
@@ -96,7 +118,12 @@ router.post("/ai/chat/sessions", authenticate, async (req, res) => {
     });
   }
 
-  await forwardToAiService("/ai/chat/sessions", "POST", { user_id, course_id }, res);
+  await forwardToAiService(
+    "/ai/chat/sessions",
+    "POST",
+    { user_id, course_id },
+    res,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -106,17 +133,29 @@ router.post("/ai/chat/sessions", authenticate, async (req, res) => {
 async function getOwnedSessionOr403(
   sessionId: string,
   userId: string,
-): Promise<{ ok: true } | { ok: false; status: number; code: string; message: string }> {
+): Promise<
+  { ok: true } | { ok: false; status: number; code: string; message: string }
+> {
   const result = await pool.query(
     "SELECT user_id FROM ai_chat_sessions WHERE id = $1",
     [sessionId],
   );
   const session = result.rows[0];
   if (!session) {
-    return { ok: false, status: 404, code: "NOT_FOUND", message: "Session not found" };
+    return {
+      ok: false,
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Session not found",
+    };
   }
   if (session.user_id !== userId) {
-    return { ok: false, status: 403, code: "AI_ACCESS_DENIED", message: "This is not your chat session" };
+    return {
+      ok: false,
+      status: 403,
+      code: "AI_ACCESS_DENIED",
+      message: "This is not your chat session",
+    };
   }
   return { ok: true };
 }
@@ -124,31 +163,39 @@ async function getOwnedSessionOr403(
 // ---------------------------------------------------------------------------
 // POST /ai/chat/sessions/:id/messages
 // ---------------------------------------------------------------------------
-router.post("/ai/chat/sessions/:id/messages", authenticate, async (req, res) => {
-  const sessionId = req.params.id as string;
-  const userId = req.user!.userId;
-  const { message } = req.body;
+router.post(
+  "/ai/chat/sessions/:id/messages",
+  authenticate,
+  async (req, res) => {
+    const sessionId = req.params.id as string;
+    const userId = req.user!.userId;
+    const { message } = req.body;
 
-  if (!message) {
-    return res.status(400).json({
-      error: { code: "VALIDATION_ERROR", message: "message is required", field: "message" },
-    });
-  }
+    if (!message) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "message is required",
+          field: "message",
+        },
+      });
+    }
 
-  const ownership = await getOwnedSessionOr403(sessionId, userId);
-  if (!ownership.ok) {
-    return res
-      .status(ownership.status)
-      .json({ error: { code: ownership.code, message: ownership.message } });
-  }
+    const ownership = await getOwnedSessionOr403(sessionId, userId);
+    if (!ownership.ok) {
+      return res
+        .status(ownership.status)
+        .json({ error: { code: ownership.code, message: ownership.message } });
+    }
 
-  await forwardToAiService(
-    `/ai/chat/sessions/${sessionId}/messages`,
-    "POST",
-    { message },
-    res,
-  );
-});
+    await forwardToAiService(
+      `/ai/chat/sessions/${sessionId}/messages`,
+      "POST",
+      { message },
+      res,
+    );
+  },
+);
 
 // ---------------------------------------------------------------------------
 // PUT /ai/chat/sessions/:id/mode
@@ -165,7 +212,12 @@ router.put("/ai/chat/sessions/:id/mode", authenticate, async (req, res) => {
       .json({ error: { code: ownership.code, message: ownership.message } });
   }
 
-  await forwardToAiService(`/ai/chat/sessions/${sessionId}/mode`, "PUT", { mode }, res);
+  await forwardToAiService(
+    `/ai/chat/sessions/${sessionId}/mode`,
+    "PUT",
+    { mode },
+    res,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -186,53 +238,79 @@ router.post("/ai/lectures/:id/summarize", authenticate, async (req, res) => {
   );
   const lecture = lectureResult.rows[0];
   if (!lecture) {
-    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Lecture not found" } });
+    return res
+      .status(404)
+      .json({ error: { code: "NOT_FOUND", message: "Lecture not found" } });
   }
 
   const access = await canAccessCourseAi(userId, role, lecture.course_id);
   if (!access.allowed) {
-    return res.status(403).json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
+    return res
+      .status(403)
+      .json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
   }
 
-  await forwardToAiService(`/ai/lectures/${lectureId}/summarize`, "POST", null, res);
+  await forwardToAiService(
+    `/ai/lectures/${lectureId}/summarize`,
+    "POST",
+    null,
+    res,
+  );
 });
 
 // ---------------------------------------------------------------------------
 // POST /ai/lectures/:id/generate-quiz — instructor/admin only (PRD: "for
 // instructor review"), so students can't trigger quiz generation themselves.
 // ---------------------------------------------------------------------------
-router.post("/ai/lectures/:id/generate-quiz", authenticate, async (req, res) => {
-  const lectureId = req.params.id;
-  const userId = req.user!.userId;
-  const role = req.user!.role;
+router.post(
+  "/ai/lectures/:id/generate-quiz",
+  authenticate,
+  async (req, res) => {
+    const lectureId = req.params.id;
+    const userId = req.user!.userId;
+    const role = req.user!.role;
 
-  if (role !== "instructor" && role !== "admin") {
-    return res.status(403).json({
-      error: { code: "FORBIDDEN", message: "Requires role: instructor or admin" },
-    });
-  }
+    if (role !== "instructor" && role !== "admin") {
+      return res.status(403).json({
+        error: {
+          code: "FORBIDDEN",
+          message: "Requires role: instructor or admin",
+        },
+      });
+    }
 
-  const lectureResult = await pool.query(
-    `SELECT c.instructor_id
+    const lectureResult = await pool.query(
+      `SELECT c.instructor_id
      FROM lectures l
      JOIN modules m ON m.id = l.module_id
      JOIN courses c ON c.id = m.course_id
      WHERE l.id = $1`,
-    [lectureId],
-  );
-  const lecture = lectureResult.rows[0];
-  if (!lecture) {
-    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Lecture not found" } });
-  }
+      [lectureId],
+    );
+    const lecture = lectureResult.rows[0];
+    if (!lecture) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Lecture not found" } });
+    }
 
-  if (role !== "admin" && lecture.instructor_id !== userId) {
-    return res.status(403).json({
-      error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" },
-    });
-  }
+    if (role !== "admin" && lecture.instructor_id !== userId) {
+      return res.status(403).json({
+        error: {
+          code: "NOT_COURSE_OWNER",
+          message: "You do not own this course",
+        },
+      });
+    }
 
-  await forwardToAiService(`/ai/lectures/${lectureId}/generate-quiz`, "POST", null, res);
-});
+    await forwardToAiService(
+      `/ai/lectures/${lectureId}/generate-quiz`,
+      "POST",
+      null,
+      res,
+    );
+  },
+);
 
 // ---------------------------------------------------------------------------
 // POST /ai/modules/:id/flashcards
@@ -251,15 +329,24 @@ router.post("/ai/modules/:id/flashcards", authenticate, async (req, res) => {
   );
   const moduleRow = moduleResult.rows[0];
   if (!moduleRow) {
-    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Module not found" } });
+    return res
+      .status(404)
+      .json({ error: { code: "NOT_FOUND", message: "Module not found" } });
   }
 
   const access = await canAccessCourseAi(userId, role, moduleRow.course_id);
   if (!access.allowed) {
-    return res.status(403).json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
+    return res
+      .status(403)
+      .json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
   }
 
-  await forwardToAiService(`/ai/modules/${moduleId}/flashcards`, "POST", null, res);
+  await forwardToAiService(
+    `/ai/modules/${moduleId}/flashcards`,
+    "POST",
+    null,
+    res,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -279,16 +366,27 @@ router.post("/ai/study-plan", authenticate, async (req, res) => {
 
   if (!course_id) {
     return res.status(400).json({
-      error: { code: "VALIDATION_ERROR", message: "course_id is required", field: "course_id" },
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "course_id is required",
+        field: "course_id",
+      },
     });
   }
 
   const access = await canAccessCourseAi(userId, role, course_id);
   if (!access.allowed) {
-    return res.status(403).json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
+    return res
+      .status(403)
+      .json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
   }
 
-  await forwardToAiService("/ai/study-plan", "POST", { user_id: userId, course_id }, res);
+  await forwardToAiService(
+    "/ai/study-plan",
+    "POST",
+    { user_id: userId, course_id },
+    res,
+  );
 });
 
 export default router;

@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError  # pyright: ignore[reportM
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from sentence_transformers import SentenceTransformer  # pyright: ignore[reportMissingImports]
 from google import genai
-from google.genai.errors import ServerError  # pyright: ignore[reportMissingImports]
+from google.genai.errors import ServerError, ClientError  # pyright: ignore[reportMissingImports]
 
 load_dotenv()
 
@@ -105,11 +105,16 @@ def call_gemini(prompt: str, max_retries: int = 2) -> str:
                 time.sleep(3)
                 continue
             raise APIError(
-                status_code=503,
-                code="AI_SERVICE_UNAVAILABLE",
+                status_code=503, code="AI_SERVICE_UNAVAILABLE",
                 message="AI service is temporarily overloaded, please try again in a moment",
             ) from e
-
+        except ClientError as e:
+            if e.code == 429:
+                raise APIError(
+                    status_code=429, code="AI_QUOTA_EXCEEDED",
+                    message="Daily AI usage limit reached for the free tier. Please try again tomorrow, or upgrade the API plan.",
+                ) from e
+            raise
 
 def parse_json_response(raw_text: str, error_message: str):
     raw_text = raw_text.strip()
