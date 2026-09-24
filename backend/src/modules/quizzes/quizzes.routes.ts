@@ -40,7 +40,7 @@ router.post(
     const isOwner = ownerResult.rows[0].instructor_id === userId;
     const isAdmin = req.user.role === "admin";
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ error: "NOT_COURSE_OWNER" });
+      return res.status(403).json({ error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" } });
     }
 
     // Borrow ONE dedicated connection for the whole transaction

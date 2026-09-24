@@ -604,7 +604,7 @@ router.delete(
       course.instructor_id !== req.user!.userId &&
       req.user!.role !== "admin"
     ) {
-      return res.status(403).json({ error: "NOT_COURSE_OWNER" });
+      return res.status(403).json({ error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" } });
     }
 
     const result = await pool.query(
