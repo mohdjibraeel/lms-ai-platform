@@ -8,7 +8,7 @@ interface Lecture {
   title: string;
   order_index: number;
   video_url: string | null;
-  transcript: string | null;
+  has_transcript: boolean;
 }
 
 interface Quiz {
@@ -335,8 +335,7 @@ export default function ManageCourse() {
                       >
                         <option value="">Choose a lecture…</option>
                         {module.lectures.map((lec) => {
-                          const hasTranscript =
-                            !!lec.transcript && lec.transcript.trim() !== "";
+                          const hasTranscript = lec.has_transcript;
                           return (
                             <option
                               key={lec.id}
