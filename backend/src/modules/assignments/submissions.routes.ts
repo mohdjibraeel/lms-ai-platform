@@ -86,7 +86,7 @@ router.post(
       res.status(201).json({ submission: result.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -136,7 +136,7 @@ router.get(
       res.json({ submission: submissionResult.rows[0] ?? null });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );

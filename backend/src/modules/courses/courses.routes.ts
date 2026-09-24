@@ -371,7 +371,10 @@ router.get("/:id", async (req, res) => {
   );
 
   const lecturesResult = await pool.query(
-    `SELECT l.* FROM lectures l
+    `SELECT l.id, l.module_id, l.title, l.video_url, l.duration_seconds,
+            l.order_index, l.resource_urls,
+            (l.transcript IS NOT NULL AND l.transcript != '') AS has_transcript
+     FROM lectures l
      JOIN modules m ON m.id = l.module_id
      WHERE m.course_id = $1
      ORDER BY l.order_index`,

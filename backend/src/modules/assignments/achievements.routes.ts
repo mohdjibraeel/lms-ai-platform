@@ -48,7 +48,12 @@ router.get("/me/achievements", authenticate, async (req: any, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({
+      error: {
+        code: "SERVER_ERROR",
+        message: "Something went wrong on our side",
+      },
+    });
   }
 });
 

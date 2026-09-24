@@ -80,7 +80,7 @@ router.post(
     } catch (err) {
       await client.query("ROLLBACK");
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     } finally {
       client.release();
     }
@@ -174,7 +174,7 @@ router.get("/quizzes/:id", authenticate, async (req: any, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -234,7 +234,7 @@ router.get(
       res.json({ attempts: attemptsResult.rows });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -290,7 +290,7 @@ router.post(
       res.status(201).json({ attempt: result.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -423,7 +423,7 @@ router.post(
       res.json({ attempt: updateResult.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -495,7 +495,7 @@ router.get(
       });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -547,7 +547,7 @@ router.put(
       res.json({ quiz_id: quizId, is_published });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );

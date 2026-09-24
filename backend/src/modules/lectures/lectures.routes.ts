@@ -83,7 +83,7 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -120,7 +120,7 @@ router.get("/lectures/:id/progress", authenticate, async (req: any, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -148,7 +148,7 @@ router.post("/lectures/:id/notes", authenticate, async (req: any, res) => {
     res.status(201).json({ note: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -172,7 +172,7 @@ router.get("/lectures/:id/notes", authenticate, async (req: any, res) => {
     res.json({ notes: result.rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -196,7 +196,7 @@ router.get("/lectures/:id/bookmarks", authenticate, async (req: any, res) => {
     res.json({ bookmarks: result.rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -220,7 +220,7 @@ router.post("/lectures/:id/bookmarks", authenticate, async (req: any, res) => {
     res.status(201).json({ bookmark: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 

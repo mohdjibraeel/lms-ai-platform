@@ -45,7 +45,7 @@ router.post(
       res.status(201).json({ assignment: result.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -114,7 +114,7 @@ router.get("/assignments/:id", authenticate, async (req: any, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "SERVER_ERROR" });
+    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
   }
 });
 
@@ -187,7 +187,7 @@ router.get(
       res.json({ submissions });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
@@ -236,7 +236,7 @@ router.put(
       res.json({ submission: result.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "SERVER_ERROR" });
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
     }
   },
 );
