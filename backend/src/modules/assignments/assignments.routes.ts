@@ -202,7 +202,7 @@ router.put(
     const { grade, feedback } = req.body;
 
     if (grade === undefined || grade === null) {
-      return res.status(400).json({ error: "GRADE_REQUIRED" });
+      return res.status(400).json({ error: { code: "GRADE_REQUIRED", message: "A grade is required" } });
     }
 
     try {
@@ -216,7 +216,7 @@ router.put(
       );
 
       if (ownerResult.rows.length === 0) {
-        return res.status(404).json({ error: "SUBMISSION_NOT_FOUND" });
+        return res.status(404).json({ error: { code: "NOT_FOUND", message: "Submission not found" } });
       }
 
       const isOwner = ownerResult.rows[0].instructor_id === userId;

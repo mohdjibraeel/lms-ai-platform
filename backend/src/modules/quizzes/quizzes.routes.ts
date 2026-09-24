@@ -34,7 +34,7 @@ router.post(
     );
 
     if (ownerResult.rows.length === 0) {
-      return res.status(404).json({ error: "MODULE_NOT_FOUND" });
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Module not found" } });
     }
 
     const isOwner = ownerResult.rows[0].instructor_id === userId;
@@ -315,7 +315,7 @@ router.post(
         [attemptId, userId],
       );
       if (attemptResult.rows.length === 0) {
-        return res.status(403).json({ error: "NOT_YOUR_ATTEMPT" });
+        return res.status(403).json({ error: { code: "NOT_YOUR_ATTEMPT", message: "This attempt does not belong to you" } });
       }
 
       // 1b. Block resubmission of an already-graded attempt — retakes go

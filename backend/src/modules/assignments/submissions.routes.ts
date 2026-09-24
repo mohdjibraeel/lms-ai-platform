@@ -24,7 +24,7 @@ router.post(
     const userId = req.user.userId;
 
     if (!req.file) {
-      return res.status(400).json({ error: "FILE_REQUIRED" });
+      return res.status(400).json({ error: { code: "FILE_REQUIRED", message: "A file is required" } });
     }
 
     try {
@@ -48,7 +48,7 @@ router.post(
       // 2. Reject late submissions (FR-S6: "before a deadline") — inference,
       // flagged since the API table doesn't spell this check out explicitly.
       if (due_date && new Date() > new Date(due_date)) {
-        return res.status(400).json({ error: "PAST_DUE" });
+        return res.status(400).json({ error: { code: "PAST_DUE", message: "The deadline for this assignment has passed" } });
       }
 
       // 3. If a previous submission exists, delete its file from MinIO

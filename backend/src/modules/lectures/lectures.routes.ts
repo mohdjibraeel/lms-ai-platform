@@ -134,7 +134,7 @@ router.post("/lectures/:id/notes", authenticate, async (req: any, res) => {
   const { timestamp_seconds, content } = req.body;
 
   if (!content || content.trim() === "") {
-    return res.status(400).json({ error: "CONTENT_REQUIRED" });
+    return res.status(400).json({ error: { code: "CONTENT_REQUIRED", message: "Content is required" } });
   }
 
   try {
