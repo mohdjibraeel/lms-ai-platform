@@ -596,7 +596,7 @@ router.delete(
     const course = courseResult.rows[0];
 
     if (!course) {
-      return res.status(404).json({ error: "COURSE_NOT_FOUND" });
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Course not found" } });
     }
 
     // Ownership check — same pattern as PUT /:id

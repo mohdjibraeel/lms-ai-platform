@@ -26,7 +26,7 @@ router.post(
       );
 
       if (courseResult.rows.length === 0) {
-        return res.status(404).json({ error: "COURSE_NOT_FOUND" });
+        return res.status(404).json({ error: { code: "NOT_FOUND", message: "Course not found" } });
       }
 
       const isOwner = courseResult.rows[0].instructor_id === userId;
