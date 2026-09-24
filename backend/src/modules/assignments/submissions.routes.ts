@@ -40,7 +40,7 @@ router.post(
       );
 
       if (assignmentResult.rows.length === 0) {
-        return res.status(403).json({ error: "NOT_ENROLLED" });
+        return res.status(403).json({ error: { code: "NOT_ENROLLED", message: "You must be enrolled in this course to do this" } });
       }
 
       const { due_date } = assignmentResult.rows[0];

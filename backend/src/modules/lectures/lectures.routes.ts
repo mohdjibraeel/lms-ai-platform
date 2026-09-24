@@ -30,7 +30,7 @@ router.post("/lectures/:id/progress", authenticate, async (req: any, res) => {
     );
 
     if (enrollmentResult.rows.length === 0) {
-      return res.status(403).json({ error: "NOT_ENROLLED" });
+      return res.status(403).json({ error: { code: "NOT_ENROLLED", message: "You must be enrolled in this course to do this" } });
     }
 
     const { enrollment_id, course_id } = enrollmentResult.rows[0];
@@ -110,7 +110,7 @@ router.get("/lectures/:id/progress", authenticate, async (req: any, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(403).json({ error: "NOT_ENROLLED" });
+      return res.status(403).json({ error: { code: "NOT_ENROLLED", message: "You must be enrolled in this course to do this" } });
     }
 
     const row = result.rows[0];
