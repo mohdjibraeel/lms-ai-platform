@@ -23,6 +23,7 @@ import PlatformOverview from "../pages/admin-panel/PlatformOverview";
 import CreateAssignment from "../pages/instructor/CreateAssignment";
 import AiTutor from "../pages/ai-tutor/AiTutor";
 import QuizReview from "../pages/instructor/QuizReview";
+import FlashcardStudy from "../pages/course-player/FlashcardStudy";
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
           { path: "lectures/:lectureId/player", element: <CoursePlayer /> },
           { path: "quizzes/:quizId/attempt", element: <QuizAttempt /> },
           { path: "instructor/quizzes/:quizId/review", element: <QuizReview /> },
+          { path: "modules/:moduleId/flashcards", element: <FlashcardStudy /> },
           { path: "ai-tutor/:courseId", element: <AiTutor /> },
           {
             path: "assignments/:assignmentId",

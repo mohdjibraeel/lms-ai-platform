@@ -225,6 +225,19 @@ export default function CourseDetail() {
                   </li>
                 ))}
             </ul>
+
+            {((role === "instructor" && course.instructor_id === userId) ||
+              (role === "student" &&
+                enrollmentsData?.enrollments.some(
+                  (e) => e.course_id === course.id,
+                ))) && (
+              <Link
+                to={`/modules/${mod.id}/flashcards`}
+                className="mt-2 inline-block text-sm text-link hover:underline"
+              >
+                📚 Study Flashcards
+              </Link>
+            )}
           </div>
         ))}
       </div>
