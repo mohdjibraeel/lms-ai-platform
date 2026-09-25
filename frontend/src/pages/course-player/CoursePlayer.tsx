@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { StickyNote, Bookmark as BookmarkIcon } from "lucide-react";
 import api from "../../services/api";
+import ReactMarkdown from "react-markdown";
+import { Sparkles } from "lucide-react";
 
 interface VideoUrlResponse {
   url: string;
@@ -141,6 +143,27 @@ export default function CoursePlayer() {
     },
   });
 
+  const summarizeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post<{ summary: string }>(
+        `/ai/lectures/${lectureId}/summarize`,
+      );
+      return response.data.summary;
+    },
+    onError: (err: any) => {
+      const code = err.response?.data?.error?.code;
+      if (code === "NO_TRANSCRIPT") {
+        alert("This lecture has no transcript yet, so it can't be summarized.");
+      } else if (code === "AI_QUOTA_EXCEEDED") {
+        alert("Daily AI usage limit reached. Please try again tomorrow.");
+      } else if (code === "AI_ACCESS_DENIED") {
+        alert("You don't have access to AI features for this course.");
+      } else {
+        alert("Couldn't generate a summary. Please try again.");
+      }
+    },
+  });
+
   // Fires once the video's metadata (duration, seekable range) is ready —
   // this is the earliest safe point to seek. Only runs once per mount,
   // guarded by hasResumedRef, and only if there's meaningful progress to
@@ -251,7 +274,29 @@ export default function CoursePlayer() {
               ))}
             </ul>
           )}
+          <button
+            type="button"
+            onClick={() => summarizeMutation.mutate()}
+            disabled={summarizeMutation.isPending}
+            className="mt-4 ml-2 inline-flex items-center gap-2 rounded-full bg-white shadow-md px-4 py-2 text-sm font-medium text-gray-700 hover:shadow-xl hover:-translate-y-1 transition disabled:opacity-50"
+          >
+            <Sparkles size={16} />
+            {summarizeMutation.isPending
+              ? "Summarizing..."
+              : "Summarize this lecture"}
+          </button>
 
+          {summarizeMutation.data && (
+            <div className="mt-4 rounded-2xl shadow-md bg-white p-4">
+              <h2 className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
+                <Sparkles size={18} />
+                Summary
+              </h2>
+              <div className="text-sm text-gray-700 prose prose-sm max-w-none">
+                <ReactMarkdown>{summarizeMutation.data}</ReactMarkdown>
+              </div>
+            </div>
+          )}
           <div className="mt-6 rounded-2xl shadow-md bg-white p-4">
             <h2 className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
               <StickyNote size={18} />
