@@ -311,6 +311,55 @@ router.post(
     );
   },
 );
+// ---------------------------------------------------------------------------
+// GET /modules/:id/flashcards
+// Returns only the MOST RECENT batch of flashcards for this module (not
+// every batch ever generated) — batches are grouped by generated_at.
+// ---------------------------------------------------------------------------
+router.get("/modules/:id/flashcards", authenticate, async (req, res) => {
+  const moduleId = req.params.id;
+  const userId = req.user!.userId;
+  const role = req.user!.role;
+
+  const moduleResult = await pool.query(
+    `SELECT c.id AS course_id
+     FROM modules m
+     JOIN courses c ON c.id = m.course_id
+     WHERE m.id = $1`,
+    [moduleId],
+  );
+  const moduleRow = moduleResult.rows[0];
+  if (!moduleRow) {
+    return res
+      .status(404)
+      .json({ error: { code: "NOT_FOUND", message: "Module not found" } });
+  }
+
+  const access = await canAccessCourseAi(userId, role, moduleRow.course_id);
+  if (!access.allowed) {
+    return res
+      .status(403)
+      .json({ error: { code: "AI_ACCESS_DENIED", message: access.reason } });
+  }
+
+  const cardsResult = await pool.query(
+    `SELECT id, question, answer, generated_at FROM flashcards
+     WHERE module_id = $1
+       AND generated_at = (SELECT MAX(generated_at) FROM flashcards WHERE module_id = $1)
+     ORDER BY id`,
+    [moduleId],
+  );
+
+  res.json({
+    module_id: moduleId,
+    generated_at: cardsResult.rows[0]?.generated_at ?? null,
+    flashcards: cardsResult.rows.map((r) => ({
+      id: r.id,
+      question: r.question,
+      answer: r.answer,
+    })),
+  });
+});
 
 // ---------------------------------------------------------------------------
 // POST /ai/modules/:id/flashcards

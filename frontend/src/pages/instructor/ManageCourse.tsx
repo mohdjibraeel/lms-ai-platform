@@ -178,6 +178,30 @@ export default function ManageCourse() {
     },
   });
 
+  const generateFlashcardsMutation = useMutation({
+    mutationFn: async (moduleId: string) => {
+      const response = await api.post(`/ai/modules/${moduleId}/flashcards`);
+      return response.data;
+    },
+    onSuccess: (data: any) => {
+      alert(
+        `${data.flashcard_count} flashcards generated. Students can now study them.`,
+      );
+    },
+    onError: (err: any) => {
+      const code = err.response?.data?.error?.code;
+      if (code === "NO_TRANSCRIPT") {
+        alert(
+          "No lectures with transcripts in this module yet — add one before generating flashcards.",
+        );
+      } else if (code === "AI_QUOTA_EXCEEDED") {
+        alert("Daily AI usage limit reached. Please try again tomorrow.");
+      } else {
+        alert("Couldn't generate flashcards. Please try again.");
+      }
+    },
+  });
+
   function getLectureForm(moduleId: string) {
     return lectureForms[moduleId] ?? { title: "", file: null };
   }
@@ -318,9 +342,9 @@ export default function ManageCourse() {
           const selectedLectureId = selectedLecture[module.id] ?? "";
           return (
             <div key={module.id} className="rounded-2xl shadow-md bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <p className="font-medium text-gray-900">{module.title}</p>
-                <div className="flex items-center gap-3">
+              <div className="mb-2">
+                <p className="font-medium text-gray-900 mb-2">{module.title}</p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   {module.lectures.length > 0 && (
                     <div className="flex items-center gap-2">
                       <select
@@ -371,6 +395,17 @@ export default function ManageCourse() {
                   >
                     + Create Quiz
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => generateFlashcardsMutation.mutate(module.id)}
+                    disabled={generateFlashcardsMutation.isPending}
+                    className="text-sm text-link underline disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {generateFlashcardsMutation.isPending &&
+                    generateFlashcardsMutation.variables === module.id
+                      ? "Generating..."
+                      : "🗂️ Generate Flashcards"}
+                  </button>
                 </div>
               </div>
 

@@ -1,0 +1,1 @@
+ALTER TABLE flashcards ADD COLUMN generated_at TIMESTAMPTZ NOT NULL DEFAULT now();

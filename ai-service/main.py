@@ -12,6 +12,7 @@ from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from sentence_transformers import SentenceTransformer  # pyright: ignore[reportMissingImports]
 from google import genai
 from google.genai.errors import ServerError, ClientError  # pyright: ignore[reportMissingImports]
+from datetime import datetime, timezone 
 
 load_dotenv()
 
@@ -492,10 +493,11 @@ Material:
     raw_text = call_gemini(prompt)
     cards = parse_json_response(raw_text, "AI did not return valid flashcard data, please try again")
 
+    batch_time = datetime.now(timezone.utc)
     for card in cards:
         cur.execute(
-            "INSERT INTO flashcards (module_id, question, answer) VALUES (%s, %s, %s)",
-            (module_id, card["question"], card["answer"]),
+            "INSERT INTO flashcards (module_id, question, answer, generated_at) VALUES (%s, %s, %s, %s)",
+            (module_id, card["question"], card["answer"], batch_time),
         )
 
     conn.commit()
