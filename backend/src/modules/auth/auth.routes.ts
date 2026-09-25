@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { pool } from "../../db/pool";
 import crypto from "crypto";
+import { authenticate } from "../../middleware/auth.middleware";
 
 const router = Router();
 
@@ -191,4 +192,46 @@ router.post("/logout", async (req, res) => {
 
   res.json({ message: "Logged out successfully" });
 });
+
+// GET /auth/me — who am I? Returns the profile of the logged-in user.
+router.get("/me", authenticate, async (req, res) => {
+  const userId = req.user!.userId;
+
+  const userResult = await pool.query(
+    `SELECT id, full_name, email, is_active FROM users WHERE id = $1`,
+    [userId],
+  );
+  const user = userResult.rows[0];
+
+  if (!user) {
+    return res.status(404).json({
+      error: { code: "NOT_FOUND", message: "User not found" },
+    });
+  }
+
+  if (!user.is_active) {
+    return res.status(403).json({
+      error: {
+        code: "ACCOUNT_DEACTIVATED",
+        message: "This account has been deactivated",
+      },
+    });
+  }
+
+  const roleResult = await pool.query(
+    `SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = $1 LIMIT 1`,
+    [userId],
+  );
+  const role = roleResult.rows[0]?.name || "student";
+
+  res.json({
+    user: {
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      role,
+    },
+  });
+});
+
 export default router;

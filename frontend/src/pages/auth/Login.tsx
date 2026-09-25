@@ -24,7 +24,8 @@ export default function Login() {
     try {
       const response = await api.post("/auth/login", { email, password });
       const token = response.data.access_token;
-      login(token);
+      const refreshToken = response.data.refresh_token;
+      login(token, refreshToken);
 
       const decoded = jwtDecode<JwtPayload>(token);
       const isInstructorOrAdmin =

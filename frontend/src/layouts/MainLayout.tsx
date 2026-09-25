@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { GraduationCap, LogOut } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
+import api from "../services/api";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -11,7 +12,17 @@ export default function MainLayout() {
   const isInstructorOrAdmin = role === "instructor" || role === "admin";
   const isAdmin = role === "admin";
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Grab the refresh token BEFORE logout() wipes it from the browser.
+    const refreshToken = useAuthStore.getState().refreshToken;
+    try {
+      if (refreshToken) {
+        await api.post("/auth/logout", { refresh_token: refreshToken });
+      }
+    } catch {
+      // If the server is down or the token is already gone, we still log
+      // the user out locally. Logging out must never get stuck.
+    }
     logout();
     navigate("/login");
   };
