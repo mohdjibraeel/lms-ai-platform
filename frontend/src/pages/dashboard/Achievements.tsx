@@ -20,6 +20,7 @@ interface Certificate {
   course_id: string;
   course_title: string;
   issued_at: string;
+  download_url: string;
 }
 
 interface AchievementsData {
@@ -87,9 +88,14 @@ export default function Achievements() {
           <ul className="space-y-2">
             {data.certificates.map((cert) => (
               <li key={cert.id} className="text-sm">
-                <span className="font-medium text-gray-900">
-                  {cert.course_title}
-                </span>
+                <a
+                  href={cert.download_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-link hover:underline"
+                >
+                  📄 {cert.course_title}
+                </a>
                 <span className="text-muted">
                   {" "}
                   — issued {new Date(cert.issued_at).toLocaleDateString()}

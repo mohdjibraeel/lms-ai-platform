@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../../db/pool";
 import { authenticate } from "../../middleware/auth.middleware";
+import { getPresignedVideoUrl } from "../../storage/minioClient";
 
 const router = Router();
 
@@ -29,12 +30,25 @@ router.get("/me/achievements", authenticate, async (req: any, res) => {
     );
 
     const certificatesResult = await pool.query(
-      `SELECT c.id, c.course_id, co.title AS course_title, c.issued_at
+      `SELECT c.id, c.course_id, co.title AS course_title, c.certificate_url, c.issued_at
        FROM certificates c
        JOIN courses co ON co.id = c.course_id
        WHERE c.user_id = $1
        ORDER BY c.issued_at DESC`,
       [userId],
+    );
+
+    // Same pattern as GET /assignments/:id/submissions — the stored
+    // certificate_url is just an internal MinIO key, not a real link, so
+    // it must be turned into a presigned URL before the browser can open it.
+    const certificates = await Promise.all(
+      certificatesResult.rows.map(async (row) => ({
+        id: row.id,
+        course_id: row.course_id,
+        course_title: row.course_title,
+        issued_at: row.issued_at,
+        download_url: await getPresignedVideoUrl(row.certificate_url),
+      })),
     );
 
     res.json({
@@ -44,7 +58,7 @@ router.get("/me/achievements", authenticate, async (req: any, res) => {
         last_active_date: null,
       },
       badges: badgesResult.rows,
-      certificates: certificatesResult.rows,
+      certificates,
     });
   } catch (err) {
     console.error(err);
