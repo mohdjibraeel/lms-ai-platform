@@ -39,6 +39,25 @@ export default function Dashboard() {
     },
   });
 
+  interface Recommendation {
+    course_id: string;
+    title: string;
+    category: string;
+    difficulty: string;
+    reason: string;
+  }
+
+  const { data: recommendationsData } = useQuery<{
+    recommendations: Recommendation[];
+  }>({
+    queryKey: ["my-recommendations"],
+    queryFn: async () => {
+      const response = await api.get("/recommendations/me");
+      return response.data;
+    },
+    enabled: role === "student",
+  });
+
   const studyPlanMutation = useMutation({
     mutationFn: async (courseId: string) => {
       const response = await api.post<{
@@ -97,7 +116,28 @@ export default function Dashboard() {
           .
         </p>
       )}
-
+      {recommendationsData &&
+        recommendationsData.recommendations.length > 0 && (
+          <div className="mb-6 rounded-2xl shadow-md bg-white p-4">
+            <h2 className="font-semibold text-gray-900 mb-3">
+              📌 Recommended for you
+            </h2>
+            <div className="space-y-2">
+              {recommendationsData.recommendations.map((rec) => (
+                <Link
+                  key={rec.course_id}
+                  to={`/courses/${rec.course_id}`}
+                  className="block rounded-lg bg-gray-50 p-3 hover:bg-gray-100 transition-colors"
+                >
+                  <p className="text-sm font-medium text-gray-900">
+                    {rec.title}
+                  </p>
+                  <p className="text-xs text-muted">{rec.reason}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {data?.enrollments.map((enrollment) => (
           <div
