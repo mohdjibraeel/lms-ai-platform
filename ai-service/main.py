@@ -493,6 +493,10 @@ Material:
     raw_text = call_gemini(prompt)
     cards = parse_json_response(raw_text, "AI did not return valid flashcard data, please try again")
 
+    # Delete any previous batch for this module BEFORE inserting the new one,
+    # so old flashcards never pile up and only the latest batch ever exists.
+    cur.execute("DELETE FROM flashcards WHERE module_id = %s", (module_id,))
+
     batch_time = datetime.now(timezone.utc)
     for card in cards:
         cur.execute(

@@ -13,6 +13,7 @@ import { startStreakCronJob } from "./jobs/streakCron";
 import achievementRoutes from "./modules/assignments/achievements.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import aiRoutes from "./modules/ai/ai.routes";
+import type { Request, Response, NextFunction } from "express";
 
 dotenv.config();
 const app = express();
@@ -30,6 +31,18 @@ app.use("/api/v1", achievementRoutes);
 app.use("/api/v1", adminRoutes);
 app.use("/api/v1", aiRoutes);
 
+// Global error handler — catches anything that slips through and wasn't
+// already handled inside a route. Must be registered LAST, after every
+// other app.use() and route, or Express won't route errors into it.
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({
+    error: {
+      code: "SERVER_ERROR",
+      message: "Something went wrong on our side",
+    },
+  });
+});
 const PORT = process.env.PORT || 4000;
 
 async function startServer() {
