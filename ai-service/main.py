@@ -154,13 +154,32 @@ def create_session(payload: CreateSessionRequest):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        # Gap — Mastery-score tracking (PRD: adaptive AI tutor difficulty).
+        # Look up this student's mastery score for this course, if we have
+        # one yet, and use it to pick a smarter starting mode than always
+        # defaulting to "intermediate".
+        cur.execute(
+            "SELECT mastery_score FROM course_mastery WHERE user_id = %s AND course_id = %s",
+            (payload.user_id, payload.course_id),
+        )
+        mastery_row = cur.fetchone()
+
+        if mastery_row is None or mastery_row[0] is None:
+            initial_mode = "intermediate"  # no quiz history yet — safe default
+        elif mastery_row[0] < 50:
+            initial_mode = "beginner"
+        elif mastery_row[0] < 80:
+            initial_mode = "intermediate"
+        else:
+            initial_mode = "advanced"
+
         cur.execute(
             """
-            INSERT INTO ai_chat_sessions (user_id, course_id)
-            VALUES (%s, %s)
+            INSERT INTO ai_chat_sessions (user_id, course_id, mode)
+            VALUES (%s, %s, %s)
             RETURNING id, mode
             """,
-            (payload.user_id, payload.course_id),
+            (payload.user_id, payload.course_id, initial_mode),
         )
         session_id, mode = cur.fetchone()
         conn.commit()

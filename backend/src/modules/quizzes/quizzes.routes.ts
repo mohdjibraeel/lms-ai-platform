@@ -34,13 +34,22 @@ router.post(
     );
 
     if (ownerResult.rows.length === 0) {
-      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Module not found" } });
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Module not found" } });
     }
 
     const isOwner = ownerResult.rows[0].instructor_id === userId;
     const isAdmin = req.user.role === "admin";
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" } });
+      return res
+        .status(403)
+        .json({
+          error: {
+            code: "NOT_COURSE_OWNER",
+            message: "You do not own this course",
+          },
+        });
     }
 
     // Borrow ONE dedicated connection for the whole transaction
@@ -80,7 +89,14 @@ router.post(
     } catch (err) {
       await client.query("ROLLBACK");
       console.error(err);
-      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+      res
+        .status(500)
+        .json({
+          error: {
+            code: "SERVER_ERROR",
+            message: "Something went wrong on our side",
+          },
+        });
     } finally {
       client.release();
     }
@@ -174,7 +190,14 @@ router.get("/quizzes/:id", authenticate, async (req: any, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+    res
+      .status(500)
+      .json({
+        error: {
+          code: "SERVER_ERROR",
+          message: "Something went wrong on our side",
+        },
+      });
   }
 });
 
@@ -234,7 +257,14 @@ router.get(
       res.json({ attempts: attemptsResult.rows });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+      res
+        .status(500)
+        .json({
+          error: {
+            code: "SERVER_ERROR",
+            message: "Something went wrong on our side",
+          },
+        });
     }
   },
 );
@@ -253,7 +283,7 @@ router.post(
     const userId = req.user.userId;
 
     try {
-            const publishedResult = await pool.query(
+      const publishedResult = await pool.query(
         `SELECT is_published FROM quizzes WHERE id = $1`,
         [quizId],
       );
@@ -277,7 +307,14 @@ router.post(
       );
 
       if (enrollmentResult.rows.length === 0) {
-        return res.status(403).json({ error: { code: "NOT_ENROLLED", message: "You must be enrolled in this course to do this" } });
+        return res
+          .status(403)
+          .json({
+            error: {
+              code: "NOT_ENROLLED",
+              message: "You must be enrolled in this course to do this",
+            },
+          });
       }
 
       const result = await pool.query(
@@ -290,7 +327,14 @@ router.post(
       res.status(201).json({ attempt: result.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+      res
+        .status(500)
+        .json({
+          error: {
+            code: "SERVER_ERROR",
+            message: "Something went wrong on our side",
+          },
+        });
     }
   },
 );
@@ -315,7 +359,14 @@ router.post(
         [attemptId, userId],
       );
       if (attemptResult.rows.length === 0) {
-        return res.status(403).json({ error: { code: "NOT_YOUR_ATTEMPT", message: "This attempt does not belong to you" } });
+        return res
+          .status(403)
+          .json({
+            error: {
+              code: "NOT_YOUR_ATTEMPT",
+              message: "This attempt does not belong to you",
+            },
+          });
       }
 
       // 1b. Block resubmission of an already-graded attempt — retakes go
@@ -420,14 +471,55 @@ router.post(
         [score, attemptId],
       );
 
+      // Gap — Mastery-score tracking (PRD: adaptive AI tutor difficulty).
+      // Every time a quiz gets a real numeric score, recompute this
+      // student's overall average across ALL their graded quizzes in this
+      // course, and save that as their current "mastery" for the course.
+      if (score !== null) {
+        const courseResult = await pool.query(
+          `SELECT m.course_id
+           FROM quizzes q
+           JOIN modules m ON m.id = q.module_id
+           WHERE q.id = $1`,
+          [attemptResult.rows[0].quiz_id],
+        );
+        const courseId = courseResult.rows[0]?.course_id;
+
+        if (courseId) {
+          const masteryResult = await pool.query(
+            `SELECT AVG(qa.score) AS avg_score, COUNT(*) AS quiz_count
+             FROM quiz_attempts qa
+             JOIN quizzes q ON q.id = qa.quiz_id
+             JOIN modules m ON m.id = q.module_id
+             WHERE qa.user_id = $1 AND m.course_id = $2 AND qa.score IS NOT NULL`,
+            [userId, courseId],
+          );
+          const { avg_score, quiz_count } = masteryResult.rows[0];
+
+          await pool.query(
+            `INSERT INTO course_mastery (user_id, course_id, mastery_score, quiz_count, updated_at)
+             VALUES ($1, $2, $3, $4, now())
+             ON CONFLICT (user_id, course_id)
+             DO UPDATE SET mastery_score = EXCLUDED.mastery_score, quiz_count = EXCLUDED.quiz_count, updated_at = now()`,
+            [userId, courseId, avg_score, quiz_count],
+          );
+        }
+      }
+
       res.json({ attempt: updateResult.rows[0] });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+      res
+        .status(500)
+        .json({
+          error: {
+            code: "SERVER_ERROR",
+            message: "Something went wrong on our side",
+          },
+        });
     }
   },
 );
-
 
 // ---------------------------------------------------------------------------
 // GET /quizzes/:id/review
@@ -457,7 +549,10 @@ router.get(
       }
       if (quiz.instructor_id !== req.user.userId && req.user.role !== "admin") {
         return res.status(403).json({
-          error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" },
+          error: {
+            code: "NOT_COURSE_OWNER",
+            message: "You do not own this course",
+          },
         });
       }
 
@@ -495,7 +590,14 @@ router.get(
       });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+      res
+        .status(500)
+        .json({
+          error: {
+            code: "SERVER_ERROR",
+            message: "Something went wrong on our side",
+          },
+        });
     }
   },
 );
@@ -513,7 +615,10 @@ router.put(
 
     if (typeof is_published !== "boolean") {
       return res.status(400).json({
-        error: { code: "VALIDATION_ERROR", message: "is_published must be true or false" },
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "is_published must be true or false",
+        },
       });
     }
 
@@ -536,7 +641,10 @@ router.put(
         req.user.role !== "admin"
       ) {
         return res.status(403).json({
-          error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" },
+          error: {
+            code: "NOT_COURSE_OWNER",
+            message: "You do not own this course",
+          },
         });
       }
 
@@ -547,7 +655,14 @@ router.put(
       res.json({ quiz_id: quizId, is_published });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: { code: "SERVER_ERROR", message: "Something went wrong on our side" } });
+      res
+        .status(500)
+        .json({
+          error: {
+            code: "SERVER_ERROR",
+            message: "Something went wrong on our side",
+          },
+        });
     }
   },
 );
