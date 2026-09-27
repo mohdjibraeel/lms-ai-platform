@@ -8,6 +8,7 @@ import {
 import { upload } from "../../middleware/upload.middleware";
 
 const router = Router();
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
 
 router.post(
   "/",
@@ -304,7 +305,25 @@ router.post(
       ],
     );
 
-    res.status(201).json({ lecture: result.rows[0] });
+    const lecture = result.rows[0];
+
+    // Fire off ingestion in the background — we do NOT `await` this on
+    // purpose. The instructor should get their "lecture created" response
+    // immediately, without waiting for the AI service to chunk + embed the
+    // transcript (which can take a few seconds). If the AI service is down
+    // or slow, that should never block or fail a lecture upload.
+    if (lecture.transcript) {
+      fetch(`${AI_SERVICE_URL}/ai/lectures/${lecture.id}/ingest`, {
+        method: "POST",
+      }).catch((err) => {
+        console.error(
+          `Failed to trigger ingestion for lecture ${lecture.id}:`,
+          err,
+        );
+      });
+    }
+
+    res.status(201).json({ lecture });
   },
 );
 
@@ -383,7 +402,7 @@ router.get("/:id", async (req, res) => {
 
   // Each module's quizzes — kept lightweight (id/title only) since this is
   // just for the "manage" screen to link into, not the full quiz content.
-    const quizzesResult = await pool.query(
+  const quizzesResult = await pool.query(
     `SELECT q.id, q.module_id, q.title, q.is_ai_generated, q.is_published
      FROM quizzes q
      JOIN modules m ON m.id = q.module_id
@@ -596,7 +615,9 @@ router.delete(
     const course = courseResult.rows[0];
 
     if (!course) {
-      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Course not found" } });
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Course not found" } });
     }
 
     // Ownership check — same pattern as PUT /:id
@@ -604,7 +625,14 @@ router.delete(
       course.instructor_id !== req.user!.userId &&
       req.user!.role !== "admin"
     ) {
-      return res.status(403).json({ error: { code: "NOT_COURSE_OWNER", message: "You do not own this course" } });
+      return res
+        .status(403)
+        .json({
+          error: {
+            code: "NOT_COURSE_OWNER",
+            message: "You do not own this course",
+          },
+        });
     }
 
     const result = await pool.query(
