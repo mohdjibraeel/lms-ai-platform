@@ -300,7 +300,65 @@ def update_mode(session_id: str, payload: UpdateModeRequest):
     conn.close()
 
     return {"session_id": session_id, "mode": payload.mode}
+# ---------------------------------------------------------------------------
+# Gap — Automated ingestion pipeline (PRD §9.3: "Document chunking + embedding
+# generation on new lecture material"). This replaces the old ingest_test.py
+# manual script: instead of hardcoding one lecture_id and running it by hand,
+# ANY lecture can now be ingested by calling this endpoint with its real ID.
+# Next step (Part B) will make the backend call this automatically.
+# ---------------------------------------------------------------------------
 
+@app.post("/ai/lectures/{lecture_id}/ingest")
+def ingest_lecture(lecture_id: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("SELECT transcript FROM lectures WHERE id = %s", (lecture_id,))
+    except psycopg2.errors.InvalidTextRepresentation:
+        cur.close()
+        conn.close()
+        raise APIError(status_code=400, code="VALIDATION_ERROR", message="lecture_id must be a valid UUID")
+
+    row = cur.fetchone()
+    if row is None:
+        cur.close()
+        conn.close()
+        raise APIError(status_code=404, code="NOT_FOUND", message="Lecture not found")
+
+    transcript = row[0]
+    if not transcript:
+        cur.close()
+        conn.close()
+        raise APIError(status_code=400, code="NO_TRANSCRIPT", message="This lecture has no transcript yet")
+
+    cur.execute(
+        "SELECT course_id FROM modules WHERE id = (SELECT module_id FROM lectures WHERE id = %s)",
+        (lecture_id,),
+    )
+    course_id = cur.fetchone()[0]
+
+    # Re-ingesting the same lecture (e.g. instructor edited the transcript)
+    # should not leave old, stale chunks sitting around next to the new ones.
+    cur.execute("DELETE FROM document_chunks WHERE lecture_id = %s", (lecture_id,))
+
+    chunks = [c.strip() for c in transcript.split(". ") if c.strip()]
+
+    for chunk_text in chunks:
+        embedding = embedding_model.encode(chunk_text).tolist()
+        cur.execute(
+            """
+            INSERT INTO document_chunks (course_id, lecture_id, chunk_text, embedding)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (course_id, lecture_id, chunk_text, embedding),
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"lecture_id": lecture_id, "chunks_created": len(chunks)}
 
 # ---------------------------------------------------------------------------
 # FR-A3 — Lecture summarization
