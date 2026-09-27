@@ -50,7 +50,7 @@ export default function ManageCourse() {
 
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [lectureForms, setLectureForms] = useState<
-    Record<string, { title: string; file: File | null }>
+    Record<string, { title: string; file: File | null; transcript: string }>
   >({});
   // Bumped after each successful lecture add, forced into the file input's
   // key below — this is the standard workaround for the fact that a file
@@ -141,6 +141,8 @@ export default function ManageCourse() {
       formData.append("title", form.title);
       formData.append("order_index", String(nextOrder));
       if (form.file) formData.append("video", form.file);
+      if (form.transcript.trim())
+        formData.append("transcript", form.transcript);
 
       await api.post(`/courses/modules/${moduleId}/lectures`, formData);
     },
@@ -148,7 +150,7 @@ export default function ManageCourse() {
       queryClient.invalidateQueries({ queryKey: ["course-detail", courseId] });
       setLectureForms((prev) => ({
         ...prev,
-        [moduleId]: { title: "", file: null },
+        [moduleId]: { title: "", file: null, transcript: "" },
       }));
       setFileInputResetKey((prev) => prev + 1);
     },
@@ -203,12 +205,12 @@ export default function ManageCourse() {
   });
 
   function getLectureForm(moduleId: string) {
-    return lectureForms[moduleId] ?? { title: "", file: null };
+    return lectureForms[moduleId] ?? { title: "", file: null, transcript: "" };
   }
 
   function updateLectureForm(
     moduleId: string,
-    patch: Partial<{ title: string; file: File | null }>,
+    patch: Partial<{ title: string; file: File | null; transcript: string }>,
   ) {
     setLectureForms((prev) => ({
       ...prev,
@@ -472,6 +474,15 @@ export default function ManageCourse() {
                   Add Lecture
                 </button>
               </div>
+              <textarea
+                placeholder="Transcript (optional) — leave blank if you're uploading a video and want it auto-transcribed"
+                value={lectureForm.transcript}
+                onChange={(e) =>
+                  updateLectureForm(module.id, { transcript: e.target.value })
+                }
+                rows={3}
+                className="mt-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
+              />
             </div>
           );
         })}
