@@ -302,11 +302,34 @@ def update_mode(session_id: str, payload: UpdateModeRequest):
     return {"session_id": session_id, "mode": payload.mode}
 # ---------------------------------------------------------------------------
 # Gap — Automated ingestion pipeline (PRD §9.3: "Document chunking + embedding
-# generation on new lecture material"). This replaces the old ingest_test.py
-# manual script: instead of hardcoding one lecture_id and running it by hand,
-# ANY lecture can now be ingested by calling this endpoint with its real ID.
-# Next step (Part B) will make the backend call this automatically.
+# generation on new lecture material").
+#
+# chunk_and_embed_transcript() is the reusable "brain" — given a transcript
+# string, it splits it into chunks and saves embeddings. Both the manual
+# /ingest endpoint AND the upcoming auto-transcribe endpoint call this same
+# function, so the chunking logic only ever lives in one place.
 # ---------------------------------------------------------------------------
+
+def chunk_and_embed_transcript(cur, course_id: str, lecture_id: str, transcript: str) -> int:
+    # Re-ingesting the same lecture (e.g. transcript was edited, or
+    # re-transcribed) should not leave old, stale chunks sitting around
+    # next to the new ones.
+    cur.execute("DELETE FROM document_chunks WHERE lecture_id = %s", (lecture_id,))
+
+    chunks = [c.strip() for c in transcript.split(". ") if c.strip()]
+
+    for chunk_text in chunks:
+        embedding = embedding_model.encode(chunk_text).tolist()
+        cur.execute(
+            """
+            INSERT INTO document_chunks (course_id, lecture_id, chunk_text, embedding)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (course_id, lecture_id, chunk_text, embedding),
+        )
+
+    return len(chunks)
+
 
 @app.post("/ai/lectures/{lecture_id}/ingest")
 def ingest_lecture(lecture_id: str):
@@ -338,27 +361,13 @@ def ingest_lecture(lecture_id: str):
     )
     course_id = cur.fetchone()[0]
 
-    # Re-ingesting the same lecture (e.g. instructor edited the transcript)
-    # should not leave old, stale chunks sitting around next to the new ones.
-    cur.execute("DELETE FROM document_chunks WHERE lecture_id = %s", (lecture_id,))
-
-    chunks = [c.strip() for c in transcript.split(". ") if c.strip()]
-
-    for chunk_text in chunks:
-        embedding = embedding_model.encode(chunk_text).tolist()
-        cur.execute(
-            """
-            INSERT INTO document_chunks (course_id, lecture_id, chunk_text, embedding)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (course_id, lecture_id, chunk_text, embedding),
-        )
+    chunk_count = chunk_and_embed_transcript(cur, course_id, lecture_id, transcript)
 
     conn.commit()
     cur.close()
     conn.close()
 
-    return {"lecture_id": lecture_id, "chunks_created": len(chunks)}
+    return {"lecture_id": lecture_id, "chunks_created": chunk_count}
 
 # ---------------------------------------------------------------------------
 # FR-A3 — Lecture summarization
