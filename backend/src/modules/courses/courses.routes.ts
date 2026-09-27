@@ -307,11 +307,12 @@ router.post(
 
     const lecture = result.rows[0];
 
-    // Fire off ingestion in the background — we do NOT `await` this on
-    // purpose. The instructor should get their "lecture created" response
-    // immediately, without waiting for the AI service to chunk + embed the
-    // transcript (which can take a few seconds). If the AI service is down
-    // or slow, that should never block or fail a lecture upload.
+    // Fire off AI processing in the background — we do NOT `await` this on
+    // purpose, same reasoning as before. Two cases:
+    // 1) A transcript was typed in directly → just chunk + embed it.
+    // 2) A video was uploaded with NO transcript → ask the ai-service to
+    //    transcribe it first (Whisper); that endpoint saves the transcript
+    //    AND chunks + embeds it, in one go.
     if (lecture.transcript) {
       fetch(`${AI_SERVICE_URL}/ai/lectures/${lecture.id}/ingest`, {
         method: "POST",
@@ -321,6 +322,21 @@ router.post(
           err,
         );
       });
+    } else if (lecture.video_url) {
+      getPresignedVideoUrl(lecture.video_url)
+        .then((signedUrl) =>
+          fetch(`${AI_SERVICE_URL}/ai/lectures/${lecture.id}/transcribe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_url: signedUrl }),
+          }),
+        )
+        .catch((err) => {
+          console.error(
+            `Failed to trigger transcription for lecture ${lecture.id}:`,
+            err,
+          );
+        });
     }
 
     res.status(201).json({ lecture });
@@ -625,14 +641,12 @@ router.delete(
       course.instructor_id !== req.user!.userId &&
       req.user!.role !== "admin"
     ) {
-      return res
-        .status(403)
-        .json({
-          error: {
-            code: "NOT_COURSE_OWNER",
-            message: "You do not own this course",
-          },
-        });
+      return res.status(403).json({
+        error: {
+          code: "NOT_COURSE_OWNER",
+          message: "You do not own this course",
+        },
+      });
     }
 
     const result = await pool.query(

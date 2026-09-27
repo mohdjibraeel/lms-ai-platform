@@ -1,6 +1,8 @@
 import os
 import json
 import time
+import tempfile
+import requests  # pyright: ignore[reportMissingImports]
 import psycopg2  # pyright: ignore[reportMissingModuleSource]
 import redis  # pyright: ignore[reportMissingImports]
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
@@ -20,6 +22,9 @@ app = FastAPI()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+from faster_whisper import WhisperModel  # pyright: ignore[reportMissingImports]
+whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
 
 redis_client = redis.Redis(host="localhost", port=6380, decode_responses=True)
 
@@ -329,6 +334,87 @@ def chunk_and_embed_transcript(cur, course_id: str, lecture_id: str, transcript:
         )
 
     return len(chunks)
+
+
+# ---------------------------------------------------------------------------
+# Gap — Automatic speech-to-text (PRD §9.3: "Video transcription (speech-to-
+# text) after upload", stack §13: "Whisper (self-hosted)"). Given a video's
+# URL, downloads it to a temp file, runs it through Whisper, and returns the
+# spoken words as plain text.
+# ---------------------------------------------------------------------------
+
+def transcribe_video_from_url(video_url: str) -> str:
+    response = requests.get(video_url, stream=True, timeout=120)
+    response.raise_for_status()
+
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_file:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            tmp_file.write(chunk)
+        tmp_path = tmp_file.name
+
+    try:
+        segments, _info = whisper_model.transcribe(tmp_path, vad_filter=True)
+        transcript_text = " ".join(segment.text.strip() for segment in segments)
+    finally:
+        os.remove(tmp_path)
+
+    return transcript_text
+
+
+class TranscribeRequest(BaseModel):
+    video_url: str
+
+
+@app.post("/ai/lectures/{lecture_id}/transcribe")
+def transcribe_lecture(lecture_id: str, payload: TranscribeRequest):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            "SELECT course_id FROM modules WHERE id = (SELECT module_id FROM lectures WHERE id = %s)",
+            (lecture_id,),
+        )
+    except psycopg2.errors.InvalidTextRepresentation:
+        cur.close()
+        conn.close()
+        raise APIError(status_code=400, code="VALIDATION_ERROR", message="lecture_id must be a valid UUID")
+
+    row = cur.fetchone()
+    if row is None:
+        cur.close()
+        conn.close()
+        raise APIError(status_code=404, code="NOT_FOUND", message="Lecture not found")
+    course_id = row[0]
+
+    try:
+        transcript_text = transcribe_video_from_url(payload.video_url)
+    except Exception as e:
+        print(f"[transcribe] failed for lecture {lecture_id}: {e!r}")
+        cur.close()
+        conn.close()
+        raise APIError(
+            status_code=502, code="TRANSCRIPTION_FAILED",
+            message="Could not transcribe this video",
+        ) from e
+
+    if not transcript_text.strip():
+        cur.close()
+        conn.close()
+        raise APIError(
+            status_code=502, code="TRANSCRIPTION_EMPTY",
+            message="Whisper produced no text for this video",
+        )
+
+    cur.execute("UPDATE lectures SET transcript = %s WHERE id = %s", (transcript_text, lecture_id))
+
+    chunk_count = chunk_and_embed_transcript(cur, course_id, lecture_id, transcript_text)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"lecture_id": lecture_id, "transcript": transcript_text, "chunks_created": chunk_count}
 
 
 @app.post("/ai/lectures/{lecture_id}/ingest")
