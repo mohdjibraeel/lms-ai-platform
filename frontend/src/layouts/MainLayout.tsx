@@ -2,6 +2,7 @@ import { Outlet, Link, useNavigate } from "react-router-dom";
 import { GraduationCap, LogOut } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import api from "../services/api";
+import NotificationBell from "../components/common/NotificationBell";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -103,6 +104,7 @@ export default function MainLayout() {
                 </Link>
               </>
             )}
+            <NotificationBell />
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2 sm:ml-auto"
