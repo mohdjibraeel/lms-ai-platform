@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
+import AnnouncementsList from "../../components/common/AnnouncementsList";
 
 interface Lecture {
   id: string;
@@ -109,6 +110,13 @@ export default function CourseDetail() {
     return <p className="text-danger text-sm">Failed to load course.</p>;
 
   const course = data!.course;
+  // Who may see announcements: the course's own instructor, admins, and
+  // students enrolled in this course (same rule the API enforces).
+  const canSeeAnnouncements =
+    (role === "instructor" && course.instructor_id === userId) ||
+    role === "admin" ||
+    (role === "student" &&
+      !!enrollmentsData?.enrollments.some((e) => e.course_id === course.id));
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -186,7 +194,7 @@ export default function CourseDetail() {
           </Link>
         </div>
       )}
-
+      {canSeeAnnouncements && <AnnouncementsList courseId={course.id} />}
       <h2 className="text-lg font-semibold text-gray-900 mb-3">
         Course Content
       </h2>
