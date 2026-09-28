@@ -138,7 +138,7 @@ export default function NotificationBell() {
                           {notification.title}
                         </p>
                         {notification.body && (
-                          <p className="text-xs text-gray-500 mt-0.5 break-words">
+                          <p className="text-xs text-gray-500 mt-0.5 wrap-break-word">
                             {notification.body}
                           </p>
                         )}
