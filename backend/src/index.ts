@@ -16,6 +16,7 @@ import aiRoutes from "./modules/ai/ai.routes";
 import recommendationRoutes from "./modules/courses/recommendations.routes";
 import notificationRoutes from "./modules/notifications/notifications.routes";
 import announcementRoutes from "./modules/announcements/announcements.routes";
+import discussionRoutes from "./modules/discussions/discussions.routes";
 import type { Request, Response, NextFunction } from "express";
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.use("/api/v1", aiRoutes);
 app.use("/api/v1", recommendationRoutes);
 app.use("/api/v1", notificationRoutes);
 app.use("/api/v1", announcementRoutes);
+app.use("/api/v1", discussionRoutes);
 
 // Global error handler — catches anything that slips through and wasn't
 // already handled inside a route. Must be registered LAST, after every
