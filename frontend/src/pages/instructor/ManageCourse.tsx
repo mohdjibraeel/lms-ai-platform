@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import api from "../../services/api";
+import AnnouncementsList from "../../components/common/AnnouncementsList";
 
 interface Lecture {
   id: string;
@@ -49,6 +50,9 @@ export default function ManageCourse() {
   const queryClient = useQueryClient();
 
   const [newModuleTitle, setNewModuleTitle] = useState("");
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementFeedback, setAnnouncementFeedback] = useState("");
   const [lectureForms, setLectureForms] = useState<
     Record<string, { title: string; file: File | null; transcript: string }>
   >({});
@@ -127,6 +131,27 @@ export default function ManageCourse() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["course-detail", courseId] });
       setNewModuleTitle("");
+    },
+  });
+
+  const postAnnouncementMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post(`/courses/${courseId}/announcements`, {
+        title: announcementTitle,
+        content: announcementContent,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      setAnnouncementTitle("");
+      setAnnouncementContent("");
+      setAnnouncementFeedback(
+        "Announcement posted — enrolled students have been notified.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["announcements", courseId] });
+    },
+    onError: () => {
+      setAnnouncementFeedback("Could not post announcement. Please try again.");
     },
   });
 
@@ -486,6 +511,50 @@ export default function ManageCourse() {
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-6 rounded-2xl shadow-md bg-white p-4">
+        <p className="font-medium text-gray-900 mb-2">
+          📢 Post an Announcement
+        </p>
+        <p className="text-sm text-muted mb-3">
+          Every student enrolled in this course will get a notification.
+        </p>
+        <input
+          type="text"
+          placeholder="Title, e.g. Exam moved to Friday"
+          value={announcementTitle}
+          onChange={(e) => setAnnouncementTitle(e.target.value)}
+          maxLength={150}
+          className="w-full rounded-lg border border-gray-200 p-2 text-sm mb-2"
+        />
+        <textarea
+          placeholder="Message"
+          value={announcementContent}
+          onChange={(e) => setAnnouncementContent(e.target.value)}
+          rows={3}
+          className="w-full rounded-lg border border-gray-200 p-2 text-sm mb-2"
+        />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => postAnnouncementMutation.mutate()}
+            disabled={
+              announcementTitle.trim() === "" ||
+              announcementContent.trim() === "" ||
+              postAnnouncementMutation.isPending
+            }
+            className="rounded-full bg-accent-green px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {postAnnouncementMutation.isPending
+              ? "Posting..."
+              : "Post Announcement"}
+          </button>
+          {announcementFeedback && (
+            <p className="text-sm text-muted">{announcementFeedback}</p>
+          )}
+        </div>
+        {courseId && <AnnouncementsList courseId={courseId} />}
       </div>
 
       {course.assignments.length > 0 && (
