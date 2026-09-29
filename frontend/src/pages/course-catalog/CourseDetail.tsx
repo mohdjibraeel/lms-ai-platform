@@ -185,12 +185,18 @@ export default function CourseDetail() {
           enrollmentsData?.enrollments.some(
             (e) => e.course_id === course.id,
           ))) && (
-        <div className="mb-6">
+        <div className="mb-6 flex gap-3">
           <Link
             to={`/ai-tutor/${course.id}`}
             className="inline-block bg-black text-white rounded-full px-5 py-2 text-sm font-medium hover:bg-gray-800 active:scale-[0.98] transition-all"
           >
             💬 Ask AI Tutor
+          </Link>
+          <Link
+            to={`/discussions/${course.id}`}
+            className="inline-block bg-white shadow-md text-gray-900 rounded-full px-5 py-2 text-sm font-medium hover:bg-gray-50 active:scale-[0.98] transition-all"
+          >
+            🗣️ Discussion
           </Link>
         </div>
       )}

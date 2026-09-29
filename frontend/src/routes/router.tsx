@@ -24,6 +24,8 @@ import CreateAssignment from "../pages/instructor/CreateAssignment";
 import AiTutor from "../pages/ai-tutor/AiTutor";
 import QuizReview from "../pages/instructor/QuizReview";
 import FlashcardStudy from "../pages/course-player/FlashcardStudy";
+import DiscussionList from "../pages/discussions/DiscussionList";
+import ThreadView from "../pages/discussions/ThreadView";
 
 export const router = createBrowserRouter([
   {
@@ -42,9 +44,14 @@ export const router = createBrowserRouter([
           { path: "dashboard", element: <Dashboard /> },
           { path: "lectures/:lectureId/player", element: <CoursePlayer /> },
           { path: "quizzes/:quizId/attempt", element: <QuizAttempt /> },
-          { path: "instructor/quizzes/:quizId/review", element: <QuizReview /> },
+          {
+            path: "instructor/quizzes/:quizId/review",
+            element: <QuizReview />,
+          },
           { path: "modules/:moduleId/flashcards", element: <FlashcardStudy /> },
           { path: "ai-tutor/:courseId", element: <AiTutor /> },
+          { path: "discussions/:courseId", element: <DiscussionList /> },
+          { path: "threads/:threadId", element: <ThreadView /> },
           {
             path: "assignments/:assignmentId",
             element: <AssignmentSubmission />,
