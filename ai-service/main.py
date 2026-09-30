@@ -26,7 +26,7 @@ embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 from faster_whisper import WhisperModel  # pyright: ignore[reportMissingImports]
 whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
 
-redis_client = redis.Redis(host="localhost", port=6380, decode_responses=True)
+redis_client = redis.Redis(host=os.environ.get("REDIS_HOST", "localhost"), port=int(os.environ.get("REDIS_PORT", "6380")), decode_responses=True)
 
 
 # ---------------------------------------------------------------------------
@@ -91,8 +91,8 @@ def check_rate_limit(user_id: str, limit: int = 20, window_seconds: int = 60):
 
 def get_db_connection():
     conn = psycopg2.connect(
-        host="localhost", port=5433, dbname="lms_ai_db",
-        user="lms_user", password="lms_pass",
+        host=os.environ["DB_HOST"], port=int(os.environ["DB_PORT"]), dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USER"], password=os.environ["DB_PASSWORD"],
     )
     register_vector(conn)
     return conn
@@ -102,7 +102,7 @@ def call_gemini(prompt: str, max_retries: int = 2) -> str:
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
-                model="gemini-3.6-flash",
+                model=os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"),
                 contents=prompt,
             )
             return response.text

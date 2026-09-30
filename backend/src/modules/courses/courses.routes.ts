@@ -49,7 +49,7 @@ router.post(
 router.get("/", async (req, res) => {
   const { category, difficulty, q, page } = req.query;
 
-  const conditions: string[] = [`status != 'archived'`];
+  const conditions: string[] = [`status = 'approved'`];
   const params: any[] = [];
 
   if (category) {
