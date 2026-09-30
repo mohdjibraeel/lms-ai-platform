@@ -18,7 +18,34 @@ router.post("/register", async (req, res) => {
     });
   }
 
-  const existing = await pool.query("SELECT id FROM users WHERE email = $1", [
+  // --- Input validation (PRD section 6: validate all inputs) ---
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const validationError = (message: string, field: string) =>
+    res.status(400).json({
+      error: { code: "VALIDATION_ERROR", message, field },
+    });
+  if (
+    typeof full_name !== "string" ||
+    full_name.trim().length < 2 ||
+    full_name.trim().length > 150
+  ) {
+    return validationError("full_name must be between 2 and 150 characters", "full_name");
+  }
+  if (typeof email !== "string" || email.length > 180 || !emailPattern.test(email)) {
+    return validationError("email must be a valid email address", "email");
+  }
+  if (
+    typeof password !== "string" ||
+    password.length < 8 ||
+    password.length > 72 ||
+    !/[A-Za-z]/.test(password) ||
+    !/[0-9]/.test(password)
+  ) {
+    return validationError(
+      "password must be 8-72 characters and contain at least one letter and one number",
+      "password",
+    );
+  }  const existing = await pool.query("SELECT id FROM users WHERE email = $1", [
     email,
   ]);
   if (existing.rows.length > 0) {
