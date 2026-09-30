@@ -55,7 +55,8 @@ async function checkCourseAccess(
     body: {
       error: {
         code: "NOT_ENROLLED",
-        message: "You must be enrolled in this course to use its discussion forum",
+        message:
+          "You must be enrolled in this course to use its discussion forum",
       },
     },
   };
@@ -135,7 +136,10 @@ router.post("/courses/:id/threads", authenticate, async (req, res) => {
     await client.query("ROLLBACK");
     console.error("Failed to create discussion thread:", err);
     res.status(500).json({
-      error: { code: "SERVER_ERROR", message: "Something went wrong on our side" },
+      error: {
+        code: "SERVER_ERROR",
+        message: "Something went wrong on our side",
+      },
     });
   } finally {
     client.release();
@@ -284,12 +288,16 @@ router.post("/threads/:id/posts", authenticate, async (req, res) => {
     `SELECT DISTINCT user_id FROM discussion_posts WHERE thread_id = $1 AND user_id <> $2`,
     [threadId, userId],
   );
-  const participantIds: string[] = participantsResult.rows.map((r) => r.user_id);
+  const participantIds: string[] = participantsResult.rows.map(
+    (r) => r.user_id,
+  );
 
   await notifyMany(
     participantIds,
     `New reply: ${thread.title}`,
-    content.trim().length > 200 ? content.trim().slice(0, 200) + "…" : content.trim(),
+    content.trim().length > 200
+      ? content.trim().slice(0, 200) + "…"
+      : content.trim(),
     `/threads/${threadId}`,
   );
 
@@ -315,7 +323,7 @@ router.put("/posts/:id/flag", authenticate, async (req, res) => {
   }
 
   const postResult = await pool.query(
-    `SELECT p.id, t.course_id
+    `SELECT p.id, p.user_id, t.course_id
      FROM discussion_posts p
      JOIN discussion_threads t ON t.id = p.thread_id
      WHERE p.id = $1`,
@@ -327,6 +335,15 @@ router.put("/posts/:id/flag", authenticate, async (req, res) => {
     return res
       .status(404)
       .json({ error: { code: "NOT_FOUND", message: "Post not found" } });
+  }
+
+  if (post.user_id === userId) {
+    return res.status(403).json({
+      error: {
+        code: "CANNOT_FLAG_OWN_POST",
+        message: "You cannot flag your own post",
+      },
+    });
   }
 
   const accessError = await checkCourseAccess(post.course_id, userId, role);

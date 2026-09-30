@@ -245,5 +245,87 @@ router.get(
     });
   },
 );
+// ---------------------------------------------------------------------------
+// GET /admin/discussions/flagged
+// Every flagged post, across every course, newest-flagged-looking-first
+// (we don't track WHEN it was flagged yet, so we sort by post recency —
+// good enough for a first version). Gives the admin everything needed to
+// judge it: which course/thread it's in, who wrote it, and the text itself.
+// ---------------------------------------------------------------------------
+router.get(
+  "/admin/discussions/flagged",
+  authenticate,
+  requireRole("admin"),
+  async (req, res) => {
+    const result = await pool.query(
+      `SELECT p.id, p.content, p.created_at,
+              u.full_name AS posted_by_name, u.email AS posted_by_email,
+              t.id AS thread_id, t.title AS thread_title,
+              c.id AS course_id, c.title AS course_title
+       FROM discussion_posts p
+       JOIN discussion_threads t ON t.id = p.thread_id
+       JOIN courses c ON c.id = t.course_id
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.is_flagged = TRUE
+       ORDER BY p.created_at DESC`,
+    );
 
+    res.json({ posts: result.rows });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PUT /admin/discussions/posts/:id/remove
+// The flag was justified — delete the post entirely. Deleting a post never
+// deletes its thread, even if it was the opening post, so the conversation
+// (and any replies) stays intact rather than vanishing along with it.
+// ---------------------------------------------------------------------------
+router.put(
+  "/admin/discussions/posts/:id/remove",
+  authenticate,
+  requireRole("admin"),
+  async (req, res) => {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      "DELETE FROM discussion_posts WHERE id = $1 RETURNING id",
+      [id],
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Post not found" } });
+    }
+
+    res.json({ removed: true });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PUT /admin/discussions/posts/:id/dismiss
+// The flag was a false alarm — clear it and leave the post exactly as it
+// was, visible to everyone again with no "Flagged" label.
+// ---------------------------------------------------------------------------
+router.put(
+  "/admin/discussions/posts/:id/dismiss",
+  authenticate,
+  requireRole("admin"),
+  async (req, res) => {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      "UPDATE discussion_posts SET is_flagged = FALSE WHERE id = $1 RETURNING id",
+      [id],
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Post not found" } });
+    }
+
+    res.json({ dismissed: true });
+  },
+);
 export default router;
