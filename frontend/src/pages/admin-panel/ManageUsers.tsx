@@ -38,7 +38,7 @@ export default function ManageUsers() {
       const action = activate ? "reactivate" : "deactivate";
       await api.put(`/admin/users/${userId}/${action}`);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setErrorUserId(null);
     },

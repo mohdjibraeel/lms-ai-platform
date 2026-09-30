@@ -59,7 +59,7 @@ export async function configureBucketCors() {
       CORSConfiguration: {
         CORSRules: [
           {
-            AllowedOrigins: ["http://localhost:5173"],
+            AllowedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173"],
             AllowedMethods: ["GET", "HEAD"],
             AllowedHeaders: ["*"],
             MaxAgeSeconds: 3600,
