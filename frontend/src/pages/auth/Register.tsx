@@ -24,7 +24,7 @@ export default function Register() {
       await api.post("/auth/register", { full_name: fullName, email, password });
       navigate("/login");
     } catch (err) {
-      setError("Registration failed. Try a different email.");
+      setError((err as any)?.response?.data?.error?.message || "Registration failed. Please try again.");
     }
   };
 

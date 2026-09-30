@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import { rateLimit } from "express-rate-limit";
 import authRoutes from "./modules/auth/auth.routes";
 import courseRoutes from "./modules/courses/courses.routes";
 import { ensureBucketExists } from "./storage/minioClient";
@@ -24,7 +25,22 @@ const app = express();
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
 
-app.use("/api/v1/auth", authRoutes);
+// PRD 8.9: /auth/* is limited to 10 requests per minute per IP address.
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests, please try again in a minute",
+      },
+    });
+  },
+});
+app.use("/api/v1/auth", authLimiter);app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/courses", courseRoutes);
 app.use("/api/v1", enrollmentRoutes);
 app.use("/api/v1", lectureRoutes);
