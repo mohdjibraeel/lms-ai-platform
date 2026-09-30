@@ -181,6 +181,7 @@ export default function CourseDetail() {
         ))}
 
       {((role === "instructor" && course.instructor_id === userId) ||
+        role === "admin" ||
         (role === "student" &&
           enrollmentsData?.enrollments.some(
             (e) => e.course_id === course.id,

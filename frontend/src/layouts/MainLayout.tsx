@@ -102,6 +102,12 @@ export default function MainLayout() {
                 >
                   Overview
                 </Link>
+                <Link
+                  to="/admin/flagged-posts"
+                  className="text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded-full px-3 sm:px-4 py-1.5 sm:py-2"
+                >
+                  Flagged
+                </Link>
               </>
             )}
             <NotificationBell />

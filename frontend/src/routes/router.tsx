@@ -26,6 +26,7 @@ import QuizReview from "../pages/instructor/QuizReview";
 import FlashcardStudy from "../pages/course-player/FlashcardStudy";
 import DiscussionList from "../pages/discussions/DiscussionList";
 import ThreadView from "../pages/discussions/ThreadView";
+import FlaggedPosts from "../pages/admin-panel/FlaggedPosts";
 
 export const router = createBrowserRouter([
   {
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
           { path: "admin/course-approvals", element: <CourseApprovals /> },
           { path: "admin/users", element: <ManageUsers /> },
           { path: "admin/overview", element: <PlatformOverview /> },
+          { path: "admin/flagged-posts", element: <FlaggedPosts /> },
           {
             path: "instructor/courses/:courseId/assignments/new",
             element: <CreateAssignment />,

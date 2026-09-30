@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../services/api";
+import { useAuthStore } from "../../store/authStore";
 
 interface Post {
   id: string;
@@ -26,6 +27,7 @@ interface ThreadData {
 export default function ThreadView() {
   const { threadId } = useParams();
   const queryClient = useQueryClient();
+  const currentUserId = useAuthStore((state) => state.userId);
   const [reply, setReply] = useState("");
   const [feedback, setFeedback] = useState("");
 
@@ -61,7 +63,8 @@ export default function ThreadView() {
     },
   });
 
-  if (isLoading) return <p className="text-muted text-sm">Loading discussion...</p>;
+  if (isLoading)
+    return <p className="text-muted text-sm">Loading discussion...</p>;
 
   if (error) {
     const status = (error as any)?.response?.status;
@@ -73,7 +76,9 @@ export default function ThreadView() {
       );
     }
     if (status === 404) {
-      return <p className="text-danger text-sm">This discussion no longer exists.</p>;
+      return (
+        <p className="text-danger text-sm">This discussion no longer exists.</p>
+      );
     }
     return <p className="text-danger text-sm">Failed to load discussion.</p>;
   }
@@ -93,7 +98,9 @@ export default function ThreadView() {
         {thread.title}
       </h1>
       <p className="text-xs text-gray-400 mb-4">
-        {thread.created_by_name ? `Started by ${thread.created_by_name} · ` : ""}
+        {thread.created_by_name
+          ? `Started by ${thread.created_by_name} · `
+          : ""}
         {new Date(thread.created_at).toLocaleDateString()}
       </p>
 
@@ -108,8 +115,10 @@ export default function ThreadView() {
                 {post.user_name ?? "Unknown user"}
               </p>
               {post.is_flagged ? (
-                <span className="text-xs text-gray-400 shrink-0">🚩 Flagged</span>
-              ) : (
+                <span className="text-xs text-gray-400 shrink-0">
+                  🚩 Flagged
+                </span>
+              ) : post.user_id !== currentUserId ? (
                 <button
                   type="button"
                   onClick={() => flagMutation.mutate(post.id)}
@@ -118,7 +127,7 @@ export default function ThreadView() {
                 >
                   Report
                 </button>
-              )}
+              ) : null}
             </div>
             <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap wrap-break-word">
               {post.content}
