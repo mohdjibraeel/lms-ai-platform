@@ -40,7 +40,8 @@ const authLimiter = rateLimit({
     });
   },
 });
-app.use("/api/v1/auth", authLimiter);app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/auth", authLimiter);
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/courses", courseRoutes);
 app.use("/api/v1", enrollmentRoutes);
 app.use("/api/v1", lectureRoutes);

@@ -54,7 +54,7 @@ router.get("/", async (req, res) => {
 
   if (category) {
     params.push(category);
-    conditions.push(`category = $${params.length}`);
+    conditions.push(`LOWER(category) = LOWER($${params.length})`);
   }
 
   if (difficulty) {
@@ -64,7 +64,7 @@ router.get("/", async (req, res) => {
 
   if (q) {
     params.push(`%${q}%`);
-    conditions.push(`title ILIKE $${params.length}`);
+    conditions.push(`(title ILIKE $${params.length} OR description ILIKE $${params.length})`);
   }
 
   const whereClause = conditions.join(" AND ");
@@ -342,6 +342,19 @@ router.post(
     res.status(201).json({ lecture });
   },
 );
+
+// GET /categories - the distinct categories of approved courses, used by the
+// catalog filter dropdown. MUST stay above GET /:id, or Express would treat
+// the word "categories" as a course ID.
+router.get("/categories", async (req, res) => {
+  const result = await pool.query(
+    `SELECT DISTINCT ON (LOWER(category)) category
+     FROM courses
+     WHERE status = 'approved' AND category IS NOT NULL AND category != ''
+     ORDER BY LOWER(category)`,
+  );
+  res.json({ categories: result.rows.map((r) => r.category) });
+});
 
 router.get("/lectures/:id/video-url", authenticate, async (req, res) => {
   const { id } = req.params;
